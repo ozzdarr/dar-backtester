@@ -14,6 +14,7 @@ OPTIONS = {
     "bar_size": 5,
 }
 
+
 def hints_import():
     mongo = pymongo.MongoClient("db.oasis-aws.1f7daa68.svc.dockerapp.io", 27017)
     db = mongo.db_production
