@@ -7,6 +7,8 @@ import datetime
 import progressbar
 #from ipdb import set_trace as bp
 
+from ib_bars import ib_bars_import
+
 OPTIONS = {
     "entry_var": 0.01,
     "stop_var": 0,
@@ -262,4 +264,13 @@ def main(options):
             writer.writeheader()
             writer.writerows(positions)
 
-main(OPTIONS)
+# main(OPTIONS)
+
+# Example of IB import:
+bars = ib_bars_import("20160810", "AAPL")
+
+# bars is observable, you can play with it.
+# if you want to convert bars to array:
+arr_bars = []
+bars.subscribe(arr_bars.append)
+print(arr_bars)
