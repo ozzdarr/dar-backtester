@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import csv
 from io import StringIO
 import urllib.request
@@ -6,14 +7,12 @@ import datetime
 import progressbar
 #from ipdb import set_trace as bp
 
-
 OPTIONS = {
     "entry_var": 0.01,
     "stop_var": 0,
     "exit1to1_var": 0,
     "bar_size": 5,
 }
-
 
 def hints_import():
     mongo = pymongo.MongoClient("db.oasis-aws.1f7daa68.svc.dockerapp.io", 27017)
@@ -36,7 +35,7 @@ def hints_import():
         if not current_hint:
             if doc["position"] not in ["long", "short"]:
                 continue
-            
+
             current_hint = doc
             continue
 
@@ -53,7 +52,7 @@ def hints_import():
 def bar_hints_import():
     bar = progressbar.ProgressBar()
     return bar([i for i in hints_import()])
-    
+
 def hint_datesym_import(hint):
     hint_date = hint['time'].strftime("%Y%m%d")
     hint_sym  = hint['sym']
@@ -79,7 +78,7 @@ def netfonds_ticks_import(hint_date, hint_sym):
             pass
     if not data:
         raise Exception("Stock %s not found" % hint_sym)
-    
+
     reader = csv.reader(data)
     rows = list(reader)
     ticks = [{rows[0][1]: float(col[1]), rows[0][0]: convert_time(col[0])} for col in rows[1:]]
@@ -133,17 +132,17 @@ def one_strategy_execute(hint, ticks, options):
 
     #for i in range(3, len(tick)):
     #    bar = bars[i]
-        
+
     entry_tick = None
     if hint["position"] == 'long':
         entry_price = hint['price'] + options["entry_var"]
         for i, tick in enumerate(ticks):
-            if tick['time'] >= hint['time']:   
+            if tick['time'] >= hint['time']:
                     if (tick['price'] >= hint['price'] + options["entry_var"]):
                         entry_tick = tick
                         left_ticks = ticks[i:]
                         break
-        
+
         if not entry_tick:
             return {
              'entryTime':'-',
@@ -168,11 +167,11 @@ def one_strategy_execute(hint, ticks, options):
                     exit_price = 2*hint['price'] - hint['stop'] + options["exit1to1_var"]
                     break
         revenue = exit_price - entry_price
-        
+
     elif hint['position'] == 'short':
         entry_price = hint['price'] - options["entry_var"]
         for i, tick in enumerate(ticks):
-            if tick['time'] >= hint['time']: 
+            if tick['time'] >= hint['time']:
                if tick['price'] <= hint['price'] - options["entry_var"]:
                         entry_tick = tick
                         left_ticks = ticks[i:]
@@ -195,7 +194,7 @@ def one_strategy_execute(hint, ticks, options):
             if tick['time'] > entry_tick['time']:
                 if tick['price'] >= hint['stop'] + options["stop_var"]:
                    exit_tick = tick
-                   exit_price = hint['stop'] + options["stop_var"] 
+                   exit_price = hint['stop'] + options["stop_var"]
                 elif tick['price'] <= (2 * hint['price']) - hint['stop'] - options["exit1to1_var"]:
                         exit_tick = tick
                         exit_price = (2 * hint['price']) - hint['stop'] - options["exit1to1_var"]
@@ -229,7 +228,7 @@ def process_hint(hint, options):
              'hintTime':hint['time'],
              'hintTrigger':hint['price'],
              'hintDirection':hint['position']
-             } 
+             }
         else:
             position = one_strategy_execute(hint, ticks, options)
         return position
@@ -263,6 +262,4 @@ def main(options):
             writer.writeheader()
             writer.writerows(positions)
 
-
 main(OPTIONS)
-        
