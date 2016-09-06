@@ -125,6 +125,10 @@ class BarsService(object):
         # Generate Observable for results
         retObservable = ReplaySubject()
 
+        if (self._ticker_id % 60) == 0:
+            print('sleeping 10 minutes')
+            sleep(600)
+
         # Connect To IB
         if not self._connected:
             self._connect()

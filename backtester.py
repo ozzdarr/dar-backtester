@@ -20,6 +20,21 @@ OPTIONS = {
     "slippage":0.04
 }
 
+CSV_KEYS = [
+    "hintTime",
+    "symbol",
+    "hintTrigger",
+    "hintDirection",
+    "hintStop",
+    "entryTime",
+    "entryPrice",
+    "exitTime",
+    "exitPrice",
+    "revenue",
+    "slippage",
+    "comment"
+]
+
 def entry_query(hint, bars, options):
     # did the hint entered a position?
     # TODO: add time limit to enter a hint
@@ -107,7 +122,7 @@ def current_bot_strategy(hint, bars, options, general):
             'hintTime': hint['time'],
             'hintTrigger': hint['price'],
             'hintDirection': hint['position'],
-            'hint stop': hint['stop']
+            'hintStop': hint['stop']
         }
         elif hint['position'] == 'short':
             processed_hint = {
@@ -120,7 +135,7 @@ def current_bot_strategy(hint, bars, options, general):
                 'hintTime': hint['time'],
                 'hintTrigger': hint['price'],
                 'hintDirection': hint['position'],
-                'hint stop': hint['stop']
+                'hintStop': hint['stop']
             }
 
     return processed_hint
@@ -147,7 +162,7 @@ def processed_hint_template(hint,entry_bar,entry_price,exit_bar,exit_price,slipp
             'hintTime': hint['time'],
             'hintTrigger': hint['price'],
             'hintDirection': hint['position'],
-            'hint stop': hint['stop'],
+            'hintStop': hint['stop'],
             'slippage': slippage,
             'comment': '-'
         }
@@ -162,7 +177,7 @@ def processed_hint_template(hint,entry_bar,entry_price,exit_bar,exit_price,slipp
             'hintTime': hint['time'],
             'hintTrigger': hint['price'],
             'hintDirection': hint['position'],
-            'hint stop': hint['stop'],
+            'hintStop': hint['stop'],
             'slippage': slippage,
             'comment': '-'
         }
@@ -174,9 +189,6 @@ def process_hint(hint, options, general, counter, bars_service):
         if(hint["position"] == "long") or (hint["position"] == "short"):
 
             ### create a day of one minute bars of one hint.
-            if (counter != 0) and ((counter % 59) == 0):
-                print('sleeping 10 minutes')
-                sleep(600)
             bars = bars_service.get_bars_list(hint)
             counter = counter + 1
             print(counter)
@@ -213,16 +225,13 @@ def main(options, bars_service):
             if h['hintDirection'] == 'long' or h['hintDirection'] == 'short':
                 if (h['symbol'] == hint['sym']) and (h['hintTime'].date() == hint['time'].date()):
                     if type(h['entryTime']) is str:
-                        print('sleeping')
-                        sleep(15)
                         continue
+
                     if hint['time'] < h['entryTime']:
                         processed_hints[i] = general['did not enter']
-                        print('sleeping')
-                        sleep(15)
+                        continue
                     elif hint['time'] > h['exitTime']:
-                        print('sleeping')
-                        sleep(15)
+                        continue
                     else:
                         processed_hint = general["did not enter"]
                         processed_hints.append(processed_hint)
@@ -240,7 +249,7 @@ def main(options, bars_service):
             'hintTime': hint['time'],
             'hintTrigger': hint['price'],
             'hintDirection': hint['position'],
-            'hint stop' : hint['stop'],
+            'hintStop' : hint['stop'],
             'slippage': '-',
             'comment': '-'
 
@@ -255,7 +264,7 @@ def main(options, bars_service):
             'hintTime': hint['time'],
             'hintTrigger': hint['price'],
             'hintDirection': hint['position'],
-            'hint stop' : hint['stop'],
+            'hintStop' : hint['stop'],
             'slippage': '-',
             'comment': '-'
         },
@@ -269,7 +278,7 @@ def main(options, bars_service):
             'hintTime': hint['time'],
             'hintTrigger': hint['price'],
             'hintDirection': hint['position'],
-            'hint stop' : hint['stop'],
+            'hintStop' : hint['stop'],
             'slippage': '-',
             'comment': '-'
         },
@@ -283,7 +292,7 @@ def main(options, bars_service):
             'hintTime': hint['time'],
             'hintTrigger': hint['price'],
             'hintDirection': hint['position'],
-            'hint stop' : hint['stop'],
+            'hintStop' : hint['stop'],
             'slippage': '-',
             'comment':'-'
         }
@@ -302,7 +311,7 @@ def main(options, bars_service):
 
     if len(processed_hints):
         with open(r"processed_hints2.csv", "w") as output:
-            writer = csv.DictWriter(output, processed_hints[0].keys())
+            writer = csv.DictWriter(output, CSV_KEYS)
             writer.writeheader()
             writer.writerows(processed_hints)
 
