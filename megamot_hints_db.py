@@ -10,7 +10,7 @@ def hints_import():
     hints = db.hints
     all_hints = hints.find({
         "refTime": {
-            "$gt": datetime.datetime(2016,8,22,10,0,0,0)
+            "$gt": datetime.datetime(2016,8,21,10,0,0,0)
         }
     })
 
@@ -46,7 +46,7 @@ def add_cancel(hints_list):
     hints = db.hints
     all_hints = hints.find({
         "refTime": {
-            "$gt": datetime.datetime(2016,8,22,10,0,0,0)
+            "$gt": datetime.datetime(2016,8,21,10,0,0,0)
         }
     })
     for doc in all_hints:
@@ -59,14 +59,6 @@ def add_cancel(hints_list):
 
     return hints_list
 
-def add_changes(hints_list):
-    index = 0
-    for hint in hints_list:
-        for hint in hints_list[index+1:]:
-            if hint["time"].strftime("%Y-%m-%d") == hints_list[index]["time"].strftime("%Y-%m-%d") and hint["sym"] == hints_list[index]["sym"]:
-                hints_list[index]["position"] = "changed"
-        index = index + 1
-    return hints_list
 
 def make_hints_list():
     hints_list = hints_import()

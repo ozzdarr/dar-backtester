@@ -1,2 +1,4 @@
 positions.csv
 __pycache__
+bars.cache
+*.csv

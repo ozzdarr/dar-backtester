@@ -1,10 +1,12 @@
+#!/usr/bin/python
+
 import csv
 from io import StringIO
 import urllib.request
 import pymongo
 import datetime
 import progressbar
-from ib_bars import ib_bars_import,disconnect,ib_bars_list,convert_bars_size,hint_datesym_import
+from ib_bars import BarsService, convert_bars_size
 from megamot_hints_db import make_hints_list
 
 from time import sleep
@@ -17,7 +19,6 @@ OPTIONS = {
     "exit_var":0.01,
     "slippage":0.04
 }
-
 
 def entry_query(hint, bars, options):
     # did the hint entered a position?
@@ -72,7 +73,6 @@ def current_bot_strategy(hint, bars, options, general):
         processed_hint = general["did not enter"]
         return processed_hint
 
-
     if entry_index <= 29:
         for i in range(entry_index,29):
             stop = defensive_query(hint,bars,i,stop)
@@ -88,7 +88,7 @@ def current_bot_strategy(hint, bars, options, general):
                 return processed_hint
 
     elif entry_index > 29:
-        for i in range((int(entry_index/5)),len(bars_5m)):
+        for i in range((int(entry_index/5)+1),len(bars_5m)):
             stop = defensive_query(hint,bars_5m,i,stop)
             exit_bar, exit_price = exit_query(hint['position'],stop,bars_5m[i],options)
             if exit_bar:
@@ -124,7 +124,6 @@ def current_bot_strategy(hint, bars, options, general):
             }
 
     return processed_hint
-
 
 def defensive_query(hint,bars,i,stop):
     if hint['position'] == 'long':
@@ -169,20 +168,20 @@ def processed_hint_template(hint,entry_bar,entry_price,exit_bar,exit_price,slipp
         }
     return processed_hint
 
-
-def process_hint(hint, options, general, counter):
+def process_hint(hint, options, general, counter, bars_service):
     try:
         ### is the hint valid?
         if(hint["position"] == "long") or (hint["position"] == "short"):
 
             ### create a day of one minute bars of one hint.
-            if counter != 0 and (counter % 60) == 0:
+            if (counter != 0) and ((counter % 59) == 0):
                 print('sleeping 10 minutes')
                 sleep(600)
-            bars = ib_bars_list(hint)
+            bars = bars_service.get_bars_list(hint)
             counter = counter + 1
-            print (counter)
-            if not bars:
+            print(counter)
+            if type(bars) is str:
+                print(bars)
                 processed_hint = general["no bars"]
 
             ### execute strategy on hint.
@@ -200,11 +199,9 @@ def process_hint(hint, options, general, counter):
         print("Failed to process hint: %s: %s" % (hint, e))
         return None, counter
 
-def main(options):
-
+def main(options, bars_service):
 
     hints_list = make_hints_list()
-
 
     # make empty list of processed hints, eventually will go to csv file
     processed_hints = list()
@@ -215,7 +212,9 @@ def main(options):
         for i,h in enumerate(processed_hints):
             if h['hintDirection'] == 'long' or h['hintDirection'] == 'short':
                 if (h['symbol'] == hint['sym']) and (h['hintTime'].date() == hint['time'].date()):
-                    if h['entryTime'] is "did not enter":
+                    if type(h['entryTime']) is str:
+                        print('sleeping')
+                        sleep(15)
                         continue
                     if hint['time'] < h['entryTime']:
                         processed_hints[i] = general['did not enter']
@@ -230,9 +229,6 @@ def main(options):
         if processed_hint:
             continue
 
-
-
-        # list of general unprocessed hints
         general = {
         "did not enter": {
             'entryTime': 'did not enter',
@@ -293,22 +289,19 @@ def main(options):
         }
     }
 
-        """
-        execute strategy on hint.
-        output: see example in one of the dicts in general list above
-        """
-        processed_hint, counter = process_hint(hint, options, general,counter)
+        processed_hint, counter = process_hint(hint, options, general,
+                                               counter, bars_service)
 
         if not processed_hint:
             print("failed process_hint")
             continue
 
         processed_hints.append(processed_hint)
-        #if len(processed_hints) > 40:
+        #if len(processed_hints) > 3:
          #   break
 
     if len(processed_hints):
-        with open(r"processed_hints.csv", "w") as output:
+        with open(r"processed_hints2.csv", "w") as output:
             writer = csv.DictWriter(output, processed_hints[0].keys())
             writer.writeheader()
             writer.writerows(processed_hints)
@@ -316,13 +309,10 @@ def main(options):
 def raiseExcp(error):
     raise error
 
-
-
-
 if __name__ == "__main__":
     try:
-        main(OPTIONS)
-
+        bars_service = BarsService()
+        main(OPTIONS, bars_service)
     finally:
-        disconnect()
-
+        del bars_service
+        # TODO: make sure it disconnects
