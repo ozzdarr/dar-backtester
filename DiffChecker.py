@@ -1,5 +1,6 @@
 import re
 import csv
+from datetime import datetime as dt
 
 #TODO open csv
 CSV_KEYS = [
@@ -19,6 +20,8 @@ CSV_KEYS = [
 
 def parseIB(reader_IB, headlines1):
     #TODO 21.7 and above
+    barrageDate = dt.strptime("21/07/2016", "%d/%m/%Y")
+
     ibRawList = list()
     headlines = next(reader_IB)
     print(headlines)
@@ -33,6 +36,7 @@ def parseIB(reader_IB, headlines1):
     ibParsedList = list()
     for i in range(0, len(ibRawList)):
         currentRow = ibRawList[i]
+        #currentDate = dt.strptime(currentRow['TradeDate'], "%d/%m/%y")
         if currentRow['Symbol'] in symList:
             symList.remove(currentRow['Symbol'])
             continue
@@ -90,9 +94,6 @@ def main():
     print(HEADLINES)
     print("/headlinesTest")
     ibPasedList = parseIB(reader_IB, HEADLINES)
-    print("#@$%$#%#%$$#%#$%")
-    print(ibPasedList)
-    print("#$%$#%$#%$#%$#%$")
     resultFile = open("IBOutput.csv", 'w')
     wr = csv.DictWriter(resultFile, CSV_KEYS, dialect='excel')
     wr.writeheader()
