@@ -78,7 +78,6 @@ def exit_query(direction, stop, bar, options):
 
 def current_bot_strategy(hint, bars, options, general):
     processed_hint = None
-    timeInterval = hint['time'].replace(hour=14, minute=00)
     stop = hint['stop']
 
     bars_5m = convert_bars_size(bars, 5)
@@ -91,13 +90,13 @@ def current_bot_strategy(hint, bars, options, general):
     if entry_index <= 29:
         for i in range(entry_index,29):
             stop = defensive_query(hint,bars,i,stop)
-            exit_bar, exit_price = exit_query(hint['position'],stop,bars[i],options)
+            exit_bar, exit_price = exit_query(hint['position'],stop,bars[i+1],options)
             if exit_bar:
                 processed_hint = processed_hint_template(hint,entry_bar,entry_price,exit_bar,exit_price,options['slippage'])
                 return processed_hint
         for i in range(6,len(bars_5m)):
             stop = defensive_query(hint,bars_5m,i,stop)
-            exit_bar,exit_price = exit_query(hint['position'],stop,bars_5m[i],options)
+            exit_bar,exit_price = exit_query(hint['position'],stop,bars_5m[i+1],options)
             if exit_bar:
                 processed_hint = processed_hint_template(hint,entry_bar,entry_price,exit_bar,exit_price,options['slippage'])
                 return processed_hint
@@ -105,7 +104,7 @@ def current_bot_strategy(hint, bars, options, general):
     elif entry_index > 29:
         for i in range((int(entry_index/5)+1),len(bars_5m)):
             stop = defensive_query(hint,bars_5m,i,stop)
-            exit_bar, exit_price = exit_query(hint['position'],stop,bars_5m[i],options)
+            exit_bar, exit_price = exit_query(hint['position'],stop,bars_5m[i+1],options)
             if exit_bar:
                 processed_hint = processed_hint_template(hint,entry_bar,entry_price,exit_bar,exit_price,options['slippage'])
                 return processed_hint
@@ -185,22 +184,17 @@ def processed_hint_template(hint,entry_bar,entry_price,exit_bar,exit_price,slipp
 
 def process_hint(hint, options, general, counter, bars_service):
     try:
-        ### is the hint valid?
         if(hint["position"] == "long") or (hint["position"] == "short"):
-
-            ### create a day of one minute bars of one hint.
             bars = bars_service.get_bars_list(hint)
             counter = counter + 1
-            print(counter)
+            print("%d - %s" % (counter, hint["time"]))
             if type(bars) is str:
                 print(bars)
                 processed_hint = general["no bars"]
 
-            ### execute strategy on hint.
             else:
                 processed_hint = current_bot_strategy(hint,bars,options,general)
 
-        ### if hint not valid(changed\canceled) return general dict
         elif hint["position"] == "changed":
             processed_hint = general["changed"]
         elif hint["position"] == "cancel":
@@ -214,11 +208,9 @@ def process_hint(hint, options, general, counter, bars_service):
 def main(options, bars_service):
 
     hints_list = make_hints_list()
-
-    # make empty list of processed hints, eventually will go to csv file
     processed_hints = list()
     counter = 0
-    ### loop through hints and execute trading strategy
+
     for hint in hints_list:
         processed_hint = None
         for i,h in enumerate(processed_hints):
@@ -310,7 +302,7 @@ def main(options, bars_service):
          #   break
 
     if len(processed_hints):
-        with open(r"processed_hints2.csv", "w") as output:
+        with open(r"Backtester Output.csv", "w") as output:
             writer = csv.DictWriter(output, CSV_KEYS)
             writer.writeheader()
             writer.writerows(processed_hints)

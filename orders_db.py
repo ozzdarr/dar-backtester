@@ -10,9 +10,7 @@ orders = db.orders
 all_orders = orders.find()
 
 
-docs = all_orders[0].keys
-for doc in docs:
-    print(doc)
+
 
 
 with open(r"orders from mongo.csv", "w") as output:

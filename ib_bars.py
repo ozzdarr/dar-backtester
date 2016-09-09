@@ -127,7 +127,7 @@ class BarsService(object):
 
         if (self._ticker_id % 60) == 0:
             print('sleeping 10 minutes')
-            sleep(600)
+            #sleep(600)
 
         # Connect To IB
         if not self._connected:
