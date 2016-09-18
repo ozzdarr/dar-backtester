@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 from ib.opt import ibConnection, message
 from ib.ext.Contract import Contract
 from time import sleep, strftime
@@ -114,7 +114,7 @@ class BarsService(object):
         print("Connected to IB")
         self._connected = True
 
-    def _ib_bars_import(self, hint_date, hint_sym, bar_size="1 min", verbose=False):
+    def _ib_bars_import(self, hint_date, hint_sym, bar_size="1 min",durationStr='1 D', verbose=False):
         """ Hint_date => YYYYMMD format """
         if bar_size == 5:
             bar_size=='5 mins'
@@ -164,7 +164,7 @@ class BarsService(object):
             tickerId=self._ticker_id,
             contract=_make_contract(hint_sym),
             endDateTime=endtime,
-            durationStr='1 D',
+            durationStr=durationStr,
             barSizeSetting=bar_size,
             whatToShow='TRADES',
             useRTH=1,

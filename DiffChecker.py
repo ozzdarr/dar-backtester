@@ -4,6 +4,7 @@ from datetime import datetime as dt
 from datetime import time
 from datetime import timedelta
 import time
+from math import fabs
 
 CSV_KEYS = [
     "hintTime",
@@ -101,6 +102,7 @@ def getHintDirection(currentRow):
 
 def parseBacklog(reader_BT):
     headlines = next(reader_BT)
+    print(headlines)
     backlogList = list()
 
     for row in reader_BT:
@@ -112,10 +114,10 @@ def parseBacklog(reader_BT):
         backlogList.append(thisDict)
 
     for btHint in backlogList:
-        btHint['hintTime'] = dt.strptime(btHint['hintTime'], "%d/%m/%Y %H:%M:%S")
+        btHint['hintTime'] = dt.strptime(btHint['hintTime'], "%Y-%m-%d %H:%M:%S")
         if btHint['entryTime'] not in ['did not enter','cancel','no bars']:
-            btHint['entryTime'] = dt.strptime(btHint['entryTime'], "%d/%m/%Y %H:%M:%S")
-            btHint['exitTime'] = dt.strptime(btHint['exitTime'], "%d/%m/%Y %H:%M:%S")
+            btHint['entryTime'] = dt.strptime(btHint['entryTime'], "%Y-%m-%d %H:%M:%S")
+            btHint['exitTime'] = dt.strptime(btHint['exitTime'], "%Y-%m-%d %H:%M:%S")
         if btHint['revenue'] not in ['did not enter','cancel','no bars']:
             btHint['revenue'] = float(btHint['revenue']) * 200
 
@@ -129,17 +131,13 @@ def diff(ib, bt):
     for btHint in bt:
         match_hint = None
         # append hint for the new diff file
+        btHint['slippage'] = 0
         hints_diff.append(btHint)
         for ibHint in ib:
             delta = (btHint['hintTime'] - ibHint['hintTime'])
             # Check if the hint exists in ib log
             if (btHint['hintTime'].date() == ibHint['hintTime'].date()) and (btHint['symbol'] == ibHint['symbol']) and timedelta(
                     minutes=10) > delta > timedelta(days=-1, minutes=1430):
-                if ibHint['symbol'] == 'YY':
-                    print(ibHint)
-                    print(btHint)
-                    print(btHint['hintTime'] - ibHint['hintTime'])
-                    print(timedelta(days=-1,minutes=1438))
 
                 match_hint = ibHint
                 if btHint['entryTime'] in ['did not enter', 'cancel', 'no bars']:
@@ -149,21 +147,23 @@ def diff(ib, bt):
 
                 # compare...
                 if (btHint['entryTime'] - ibHint['entryTime']) > timedelta(minutes=2) or (btHint['entryTime'] - ibHint['entryTime']) < timedelta(days=-1,minutes=1438) :
-                    print(btHint['entryTime'] - ibHint['entryTime'])
                     btHint['comment'] = str(btHint['comment']) + ' ,Difference in entry time: ' + str(ibHint['entryTime'] - (btHint['entryTime']))
 
-                if (float(btHint['entryPrice']) - float(ibHint['entryPrice'])) > 0.05:
+
+                if ((float(btHint['entryPrice']) - float(ibHint['entryPrice'])) > 0.05) or ((float(btHint['entryPrice']) - float(ibHint['entryPrice'])) < (-0.05)):
                     btHint['comment'] = str(btHint['comment']) + ' ,Difference in entry price: ' + str(float(btHint['entryPrice']) - float(ibHint['entryPrice']))
 
                 if (btHint['exitTime'] - ibHint['exitTime']) > timedelta(minutes=6) or (btHint['exitTime'] - ibHint['exitTime']) < timedelta(days=-1,minutes=1434):
                     btHint['comment'] = str(btHint['comment']) + ' ,Difference in exit time:' + str((btHint['exitTime'] - ibHint['exitTime']))
 
-                if (float(btHint['exitPrice']) - float(ibHint['exitPrice'])) > 0.05:
+                if ((float(btHint['exitPrice']) - float(ibHint['exitPrice'])) > 0.05) or ((float(btHint['exitPrice']) - float(ibHint['exitPrice'])) < (-0.05)):
                     btHint['comment'] = str(btHint['comment']) + ' ,Difference in exit price:' + str(float(btHint['exitPrice']) - float(ibHint['exitPrice']))
 
                 # append the  ib matched hint after the bt hint
-                ibHint['comment'] = str(ibHint['comment']) + ' ,Latency in order time - ' + str((ibHint['hintTime'] - btHint['hintTime']))
-                print(ibHint)
+                if ibHint['hintTime'] - btHint['hintTime'] > timedelta(seconds=5):
+                    ibHint['comment'] = str(ibHint['comment']) + ' ,Latency in order time - ' + str((ibHint['hintTime'] - btHint['hintTime']))
+
+                ibHint['slippage'] = round(fabs(float(btHint['exitPrice']) - float(ibHint['exitPrice'])) + fabs(float(btHint['entryPrice']) - float(ibHint['entryPrice'])),2)
                 hints_diff.append(ibHint)
 
         # Bot did not entered while BT did entered
