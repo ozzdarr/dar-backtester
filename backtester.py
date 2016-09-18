@@ -1,8 +1,8 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import csv
 from io import StringIO
-import urllib.request
+
 import pymongo
 import datetime
 import progressbar
@@ -10,14 +10,16 @@ from ib_bars import BarsService, convert_bars_size
 from megamot_hints_db import make_hints_list
 
 from time import sleep
-#from ipdb import set_trace as bp
+
+# from ipdb import set_trace as bp
 OPTIONS = {
-    "entry_var": 0.01,
+    "entry_var": 0,
     "stop_var": 0,
     "exit1to1_var": 0,
     "bar_size": 5,
-    "exit_var":0.01,
-    "slippage":0.04
+    "exit_var": 0,
+    "slippage": 0.04
+
 }
 
 CSV_KEYS = [
@@ -35,29 +37,34 @@ CSV_KEYS = [
     "comment"
 ]
 
+
 def entry_query(hint, bars, options):
+    # Todo: add 0.05 interval
     # did the hint entered a position?
-    # TODO: add time limit to enter a hint
+
 
     entry_bar = None
 
     if hint['position'] == "long":
         entry_price = hint['price'] + options["entry_var"]
+        entry_price = round(entry_price, 2)
         for i, bar in enumerate(bars):
-            if bar['date'] >= hint['time'].replace(second = 0, microsecond = 0) and bar['high'] >= entry_price:
-                if bar['date'] < hint['time'].replace(hour=(hint['time'].hour+1),second = 0, microsecond = 0):
+            if bar['date'] >= hint['time'].replace(second=0, microsecond=0) and bar['high'] >= entry_price:
+                if bar['date'] < hint['time'].replace(hour=(hint['time'].hour + 1), second=0, microsecond=0):
                     return i, bar, entry_price, bars[i:]
         if not entry_bar:
             return None, None, None, list()
 
     elif hint['position'] == "short":
         entry_price = hint['price'] - options["entry_var"]
+        entry_price = round(entry_price, 2)
         for i, bar in enumerate(bars):
-            if bar['date'] >= hint['time'].replace(second = 0, microsecond = 0) and bar['low'] <= entry_price:
-                if bar['date'] < hint['time'].replace(hour=(hint['time'].hour+1),second = 0, microsecond = 0):
+            if bar['date'] >= hint['time'].replace(second=0, microsecond=0) and bar['low'] <= entry_price:
+                if bar['date'] < hint['time'].replace(hour=(hint['time'].hour + 1), second=0, microsecond=0):
                     return i, bar, entry_price, bars[i:]
         if not entry_bar:
             return None, None, None, list()
+
 
 def exit_query(direction, stop, bar, options):
     if direction == "long":
@@ -74,62 +81,92 @@ def exit_query(direction, stop, bar, options):
         else:
             exit_bar = None
             exit_price = None
-    return exit_bar,exit_price
+    return exit_bar, exit_price
+
 
 def current_bot_strategy(hint, bars, options, general):
     processed_hint = None
     stop = hint['stop']
-
     bars_5m = convert_bars_size(bars, 5)
 
+    # Check entrance in one minute bars
     entry_index, entry_bar, entry_price, left_bars = entry_query(hint, bars, options)
     if not entry_bar:
         processed_hint = general["did not enter"]
         return processed_hint
 
+    # Unreasonable hint trigger
+    if entry_bar:
+        if hint['position'] == 'long':
+            if (bars[entry_index]['high'] - entry_price) > 2:
+                entry_bar = None
+        elif hint['position'] == 'short':
+            if (entry_price - bars[entry_index]['low']) > 2:
+                entry_bar = None
+
+    if not entry_bar:
+        processed_hint = general["did not enter"]
+        processed_hint['comment'] = 'Unreasonable hint price'
+        return processed_hint
+
+    # Before 10:00
     if entry_index <= 29:
-        for i in range(entry_index,29):
-            stop = defensive_query(hint,bars,i,stop)
-            exit_bar, exit_price = exit_query(hint['position'],stop,bars[i+1],options)
+        for i in range(entry_index + 1, 29):
+            stop = defensive_query(hint, bars, i, stop)
+            exit_bar, exit_price = exit_query(hint['position'], stop, bars[i], options)
             if exit_bar:
-                processed_hint = processed_hint_template(hint,entry_bar,entry_price,exit_bar,exit_price,options['slippage'])
+                processed_hint = processed_hint_template(hint, entry_bar, entry_price, exit_bar, exit_price,
+                                                         options['slippage'])
                 return processed_hint
-        for i in range(6,len(bars_5m)):
-            stop = defensive_query(hint,bars_5m,i,stop)
-            exit_bar,exit_price = exit_query(hint['position'],stop,bars_5m[i+1],options)
+        for i in range(6, len(bars_5m)):
+            stop = defensive_query(hint, bars_5m, i, stop)
+            exit_bar, exit_price = exit_query(hint['position'], stop, bars_5m[i], options)
             if exit_bar:
-                processed_hint = processed_hint_template(hint,entry_bar,entry_price,exit_bar,exit_price,options['slippage'])
+                processed_hint = processed_hint_template(hint, entry_bar, entry_price, exit_bar, exit_price,
+                                                         options['slippage'])
                 return processed_hint
-
+    # After 10:00
     elif entry_index > 29:
-        for i in range((int(entry_index/5)+1),len(bars_5m)):
-            stop = defensive_query(hint,bars_5m,i,stop)
-            exit_bar, exit_price = exit_query(hint['position'],stop,bars_5m[i+1],options)
+
+        # defensive pattern in 3 bars before entrance?
+        # stop = defensive_query(hint,bars_5m,int(entry_index/5),stop)
+
+        # Start checking exit from one bar after entrance and on
+        for i in range(int(entry_index / 5) + 1, len(bars_5m)):
+
+            # Stop checking 10 minutes before end of day
+            if i + 1 == 78:
+                break
+
+            stop = defensive_query(hint, bars_5m, i, stop)
+            exit_bar, exit_price = exit_query(hint['position'], stop, bars_5m[i], options)
             if exit_bar:
-                processed_hint = processed_hint_template(hint,entry_bar,entry_price,exit_bar,exit_price,options['slippage'])
+                processed_hint = processed_hint_template(hint, entry_bar, entry_price, exit_bar, exit_price,
+                                                         options['slippage'])
                 return processed_hint
 
+    # Define processed hint 10 min before end of day
     if not processed_hint:
         if hint['position'] == 'long':
             processed_hint = {
-            'entryTime': entry_bar['date'],
-            'entryPrice': entry_price,
-            'exitTime': bars[-5]['date'],
-            'exitPrice': bars[-5]['close'],
-            'revenue': bars[-5]['close'] - entry_price,
-            'symbol': hint['sym'],
-            'hintTime': hint['time'],
-            'hintTrigger': hint['price'],
-            'hintDirection': hint['position'],
-            'hintStop': hint['stop']
-        }
+                'entryTime': entry_bar['date'],
+                'entryPrice': entry_price,
+                'exitTime': bars[-10]['date'],
+                'exitPrice': bars[-10]['close'],
+                'revenue': bars[-10]['close'] - entry_price,
+                'symbol': hint['sym'],
+                'hintTime': hint['time'],
+                'hintTrigger': hint['price'],
+                'hintDirection': hint['position'],
+                'hintStop': hint['stop']
+            }
         elif hint['position'] == 'short':
             processed_hint = {
                 'entryTime': entry_bar['date'],
                 'entryPrice': entry_price,
-                'exitTime': bars[-5]['date'],
-                'exitPrice': bars[-5]['close'],
-                'revenue': entry_price - bars[-5]['close'],
+                'exitTime': bars[-10]['date'],
+                'exitPrice': bars[-10]['close'],
+                'revenue': entry_price - bars[-10]['close'],
                 'symbol': hint['sym'],
                 'hintTime': hint['time'],
                 'hintTrigger': hint['price'],
@@ -139,24 +176,201 @@ def current_bot_strategy(hint, bars, options, general):
 
     return processed_hint
 
-def defensive_query(hint,bars,i,stop):
+def one_to_one(hint, bars, options, general):
+    processed_hint = None
+    stop = hint['stop']
+
+    # Static stop
+    if hint['position'] == 'long':
+        static_stop = (hint['price'] - hint['stop']) + hint['price'] + 2*options['slippage']
+
+    elif hint['position'] == 'short':
+        static_stop = hint['price'] - (hint['stop'] - hint['price']) - 2*options['slippage']
+
+
+    # Check entrance in one minute bars
+    entry_index, entry_bar, entry_price, left_bars = entry_query(hint, bars, options)
+    if not entry_bar:
+        processed_hint = general["did not enter"]
+        return processed_hint
+
+    # Unreasonable hint trigger
+    if entry_bar:
+        if hint['position'] == 'long':
+            if (bars[entry_index]['high'] - entry_price) > 2:
+                entry_bar = None
+        elif hint['position'] == 'short':
+            if (entry_price - bars[entry_index]['low']) > 2:
+                entry_bar = None
+
+    if not entry_bar:
+        processed_hint = general["did not enter"]
+        processed_hint['comment'] = 'Unreasonable hint price'
+        return processed_hint
+
+    for bar in left_bars[1:]:
+        exit_bar, exit_price = exit_query(hint['position'], stop, bar, options)
+        if exit_bar:
+            processed_hint = processed_hint_template(hint, entry_bar, entry_price, exit_bar, exit_price,
+                                                     options['slippage'])
+            return processed_hint
+
+        exit_bar, exit_price = static_stop_query(bar,static_stop,hint['position'])
+        if exit_bar:
+            processed_hint = processed_hint_template(hint, entry_bar, entry_price, exit_bar, exit_price,
+                                                     options['slippage'])
+            return processed_hint
+
+    # Define processed hint 10 min before end of day
+    if not processed_hint:
+        if hint['position'] == 'long':
+            processed_hint = {
+                'entryTime': entry_bar['date'],
+                'entryPrice': entry_price,
+                'exitTime': bars[-10]['date'],
+                'exitPrice': bars[-10]['close'],
+                'revenue': bars[-10]['close'] - entry_price,
+                'symbol': hint['sym'],
+                'hintTime': hint['time'],
+                'hintTrigger': hint['price'],
+                'hintDirection': hint['position'],
+                'hintStop': hint['stop']
+            }
+        elif hint['position'] == 'short':
+            processed_hint = {
+                'entryTime': entry_bar['date'],
+                'entryPrice': entry_price,
+                'exitTime': bars[-10]['date'],
+                'exitPrice': bars[-10]['close'],
+                'revenue': entry_price - bars[-10]['close'],
+                'symbol': hint['sym'],
+                'hintTime': hint['time'],
+                'hintTrigger': hint['price'],
+                'hintDirection': hint['position'],
+                'hintStop': hint['stop']
+            }
+
+    return processed_hint
+
+def static_stop_query(bar,static_stop,direction):
+
+    if direction == 'long':
+        if bar['high'] >= static_stop:
+            return  bar, static_stop
+        else:
+            return  None,None
+    elif direction =='short':
+        if bar['low'] <= static_stop:
+            return bar, static_stop
+        else:
+            return None, None
+
+
+
+
+
+    # Before 10:00
+    if entry_index <= 29:
+        for i in range(entry_index + 1, 29):
+            stop = defensive_query(hint, bars, i, stop)
+            exit_bar, exit_price = exit_query(hint['position'], stop, bars[i], options)
+            if exit_bar:
+                processed_hint = processed_hint_template(hint, entry_bar, entry_price, exit_bar, exit_price,
+                                                         options['slippage'])
+                return processed_hint
+        for i in range(6, len(bars_5m)):
+            stop = defensive_query(hint, bars_5m, i, stop)
+            exit_bar, exit_price = exit_query(hint['position'], stop, bars_5m[i], options)
+            if exit_bar:
+                processed_hint = processed_hint_template(hint, entry_bar, entry_price, exit_bar, exit_price,
+                                                         options['slippage'])
+                return processed_hint
+    # After 10:00
+    elif entry_index > 29:
+
+        # defensive pattern in 3 bars before entrance?
+        # stop = defensive_query(hint,bars_5m,int(entry_index/5),stop)
+
+        # Start checking exit from one bar after entrance and on
+        for i in range(int(entry_index / 5) + 1, len(bars_5m)):
+
+            # Stop checking 10 minutes before end of day
+            if i + 1 == 78:
+                break
+
+            stop = defensive_query(hint, bars_5m, i, stop)
+            exit_bar, exit_price = exit_query(hint['position'], stop, bars_5m[i], options)
+            if exit_bar:
+                processed_hint = processed_hint_template(hint, entry_bar, entry_price, exit_bar, exit_price,
+                                                         options['slippage'])
+                return processed_hint
+
+    # Define processed hint 10 min before end of day
+    if not processed_hint:
+        if hint['position'] == 'long':
+            processed_hint = {
+                'entryTime': entry_bar['date'],
+                'entryPrice': entry_price,
+                'exitTime': bars[-10]['date'],
+                'exitPrice': bars[-10]['close'],
+                'revenue': bars[-10]['close'] - entry_price,
+                'symbol': hint['sym'],
+                'hintTime': hint['time'],
+                'hintTrigger': hint['price'],
+                'hintDirection': hint['position'],
+                'hintStop': hint['stop']
+            }
+        elif hint['position'] == 'short':
+            processed_hint = {
+                'entryTime': entry_bar['date'],
+                'entryPrice': entry_price,
+                'exitTime': bars[-10]['date'],
+                'exitPrice': bars[-10]['close'],
+                'revenue': entry_price - bars[-10]['close'],
+                'symbol': hint['sym'],
+                'hintTime': hint['time'],
+                'hintTrigger': hint['price'],
+                'hintDirection': hint['position'],
+                'hintStop': hint['stop']
+            }
+
+    return processed_hint
+
+
+
+
+
+
+
+
+
+def defensive_query(hint, bars, i, stop):
     if hint['position'] == 'long':
         if (bars[i - 3]['low'] > bars[i - 2]['low']) and (bars[i - 1]['low'] > bars[i - 2]['low']):
-            stop = bars[i - 2]['low']
+            if bars[i - 2]['low'] > stop:
+                if bars[i - 2]['low'] >= 100:
+                    stop = bars[i - 2]['low'] - 0.01
+                else:
+                    stop = bars[i - 2]['low']
     elif hint['position'] == 'short':
         if (bars[i - 3]['high'] < bars[i - 2]['high']) and (bars[i - 1]['high'] < bars[i - 2]['high']):
-            stop = bars[i - 2]['high']
+            if bars[i - 2]['high'] < stop:
+                if bars[i - 2]['high'] > 100:
+                    stop = bars[i - 2]['high'] + 0.01
+                else:
+                    stop = bars[i - 2]['high']
 
     return stop
 
-def processed_hint_template(hint,entry_bar,entry_price,exit_bar,exit_price,slippage):
+
+def processed_hint_template(hint, entry_bar, entry_price, exit_bar, exit_price, slippage):
     if hint['position'] == 'long':
         processed_hint = {
             'entryTime': entry_bar['date'],
             'entryPrice': entry_price,
             'exitTime': exit_bar['date'],
             'exitPrice': exit_price,
-            'revenue': (exit_price - entry_price)-slippage,
+            'revenue': (exit_price - entry_price) - slippage,
             'symbol': hint['sym'],
             'hintTime': hint['time'],
             'hintTrigger': hint['price'],
@@ -171,7 +385,7 @@ def processed_hint_template(hint,entry_bar,entry_price,exit_bar,exit_price,slipp
             'entryPrice': entry_price,
             'exitTime': exit_bar['date'],
             'exitPrice': exit_price,
-            'revenue': (entry_price - exit_price)-slippage,
+            'revenue': (entry_price - exit_price) - slippage,
             'symbol': hint['sym'],
             'hintTime': hint['time'],
             'hintTrigger': hint['price'],
@@ -182,18 +396,20 @@ def processed_hint_template(hint,entry_bar,entry_price,exit_bar,exit_price,slipp
         }
     return processed_hint
 
+
 def process_hint(hint, options, general, counter, bars_service):
     try:
-        if(hint["position"] == "long") or (hint["position"] == "short"):
+        if (hint["position"] == "long") or (hint["position"] == "short"):
             bars = bars_service.get_bars_list(hint)
+
             counter = counter + 1
             print("%d - %s" % (counter, hint["time"]))
             if type(bars) is str:
-                print(bars)
+                print('ERORO' + bars)
                 processed_hint = general["no bars"]
 
             else:
-                processed_hint = current_bot_strategy(hint,bars,options,general)
+                processed_hint = one_to_one(hint, bars, options, general)
 
         elif hint["position"] == "changed":
             processed_hint = general["changed"]
@@ -205,20 +421,93 @@ def process_hint(hint, options, general, counter, bars_service):
         print("Failed to process hint: %s: %s" % (hint, e))
         return None, counter
 
-def main(options, bars_service):
 
+def main(options, bars_service):
     hints_list = make_hints_list()
     processed_hints = list()
     counter = 0
 
     for hint in hints_list:
+        general = {
+            "did not enter": {
+                'entryTime': 'did not enter',
+                'entryPrice': 'did not enter',
+                'exitTime': 'did not enter',
+                'exitPrice': 'did not enter',
+                'revenue': 'did not enter',
+                'symbol': hint['sym'],
+                'hintTime': hint['time'],
+                'hintTrigger': hint['price'],
+                'hintDirection': hint['position'],
+                'hintStop': hint['stop'],
+                'slippage': '-',
+                'comment': '-'
+
+            },
+            "no bars": {
+                'entryTime': 'no bars',
+                'entryPrice': 'no bars',
+                'exitTime': 'no bars',
+                'exitPrice': 'no bars',
+                'revenue': 'no bars',
+                'symbol': hint['sym'],
+                'hintTime': hint['time'],
+                'hintTrigger': hint['price'],
+                'hintDirection': hint['position'],
+                'hintStop': hint['stop'],
+                'slippage': '-',
+                'comment': '-'
+            },
+            "changed": {
+                'entryTime': hint['position'],
+                'entryPrice': hint['position'],
+                'exitTime': hint['position'],
+                'exitPrice': hint['position'],
+                'revenue': hint['position'],
+                'symbol': hint['sym'],
+                'hintTime': hint['time'],
+                'hintTrigger': hint['price'],
+                'hintDirection': hint['position'],
+                'hintStop': hint['stop'],
+                'slippage': '-',
+                'comment': '-'
+            },
+            "canceled": {
+                'entryTime': hint['position'],
+                'entryPrice': hint['position'],
+                'exitTime': hint['position'],
+                'exitPrice': hint['position'],
+                'revenue': hint['position'],
+                'symbol': hint['sym'],
+                'hintTime': hint['time'],
+                'hintTrigger': hint['price'],
+                'hintDirection': hint['position'],
+                'hintStop': hint['stop'],
+                'slippage': '-',
+                'comment': '-'
+            }
+        }
+
+        # Unreasonable stop
+        if hint['position'] == 'long':
+            if hint['stop'] > hint['price'] :
+                processed_hint = general['did not enter']
+                processed_hint['comment'] = 'Stop is unreasonable'
+                processed_hints.append(processed_hint)
+                continue
+        elif hint['position'] == 'short':
+            if hint['stop'] < hint['price']:
+                processed_hint = general['did not enter']
+                processed_hint['comment'] = 'Stop is unreasonable'
+                processed_hints.append(processed_hint)
+                continue
+
         processed_hint = None
-        for i,h in enumerate(processed_hints):
+        for i, h in enumerate(processed_hints):
             if h['hintDirection'] == 'long' or h['hintDirection'] == 'short':
                 if (h['symbol'] == hint['sym']) and (h['hintTime'].date() == hint['time'].date()):
                     if type(h['entryTime']) is str:
                         continue
-
                     if hint['time'] < h['entryTime']:
                         processed_hints[i] = general['did not enter']
                         continue
@@ -230,65 +519,7 @@ def main(options, bars_service):
         if processed_hint:
             continue
 
-        general = {
-        "did not enter": {
-            'entryTime': 'did not enter',
-            'entryPrice': 'did not enter',
-            'exitTime': 'did not enter',
-            'exitPrice': 'did not enter',
-            'revenue': 'did not enter',
-            'symbol': hint['sym'],
-            'hintTime': hint['time'],
-            'hintTrigger': hint['price'],
-            'hintDirection': hint['position'],
-            'hintStop' : hint['stop'],
-            'slippage': '-',
-            'comment': '-'
 
-        },
-        "no bars": {
-            'entryTime': 'no bars',
-            'entryPrice': 'no bars',
-            'exitTime': 'no bars',
-            'exitPrice': 'no bars',
-            'revenue': 'no bars',
-            'symbol': hint['sym'],
-            'hintTime': hint['time'],
-            'hintTrigger': hint['price'],
-            'hintDirection': hint['position'],
-            'hintStop' : hint['stop'],
-            'slippage': '-',
-            'comment': '-'
-        },
-        "changed": {
-            'entryTime': hint['position'],
-            'entryPrice': hint['position'],
-            'exitTime': hint['position'],
-            'exitPrice': hint['position'],
-            'revenue': hint['position'],
-            'symbol': hint['sym'],
-            'hintTime': hint['time'],
-            'hintTrigger': hint['price'],
-            'hintDirection': hint['position'],
-            'hintStop' : hint['stop'],
-            'slippage': '-',
-            'comment': '-'
-        },
-        "canceled": {
-            'entryTime': hint['position'],
-            'entryPrice': hint['position'],
-            'exitTime': hint['position'],
-            'exitPrice': hint['position'],
-            'revenue': hint['position'],
-            'symbol': hint['sym'],
-            'hintTime': hint['time'],
-            'hintTrigger': hint['price'],
-            'hintDirection': hint['position'],
-            'hintStop' : hint['stop'],
-            'slippage': '-',
-            'comment':'-'
-        }
-    }
 
         processed_hint, counter = process_hint(hint, options, general,
                                                counter, bars_service)
@@ -298,17 +529,19 @@ def main(options, bars_service):
             continue
 
         processed_hints.append(processed_hint)
-        #if len(processed_hints) > 3:
-         #   break
+        # if len(processed_hints) > 3:
+        #   break
 
     if len(processed_hints):
-        with open(r"Backtester Output.csv", "w") as output:
+        with open(r"Backtester Output  static stop+slippage.csv", "w") as output:
             writer = csv.DictWriter(output, CSV_KEYS)
             writer.writeheader()
             writer.writerows(processed_hints)
 
+
 def raiseExcp(error):
     raise error
+
 
 if __name__ == "__main__":
     try:
