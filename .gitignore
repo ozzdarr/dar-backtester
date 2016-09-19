@@ -2,3 +2,5 @@ positions.csv
 __pycache__
 bars.cache
 *.csv
+.idea
+Dani's_test.py
