@@ -510,7 +510,11 @@ def main(options, bars_service):
                     if type(h['entryTime']) is str:
                         continue
                     if hint['time'] < h['entryTime']:
-                        processed_hints[i] = general['did not enter']
+                        h['entryTime'] = 'did not enter'
+                        h['entryPrice'] = 'did not enter'
+                        h['exitTime'] = 'did not enter'
+                        h['exitPrice'] = 'did not enter'
+                        h['revenue'] = 'did not enter'
                         continue
                     elif hint['time'] > h['exitTime']:
                         continue
@@ -534,7 +538,7 @@ def main(options, bars_service):
         #   break
 
     if len(processed_hints):
-        with open(r"Backtester Output  static stop+slippage.csv", "w") as output:
+        with open(r"BT Output.csv", "w") as output:
             writer = csv.DictWriter(output, CSV_KEYS)
             writer.writeheader()
             writer.writerows(processed_hints)
