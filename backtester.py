@@ -409,7 +409,7 @@ def process_hint(hint, options, general, counter, bars_service):
                 processed_hint = general["no bars"]
 
             else:
-                processed_hint = one_to_one(hint, bars, options, general)
+                processed_hint = current_bot_strategy(hint, bars, options, general)
 
         elif hint["position"] == "changed":
             processed_hint = general["changed"]
@@ -502,6 +502,7 @@ def main(options, bars_service):
                 processed_hints.append(processed_hint)
                 continue
 
+        # Changed hints
         processed_hint = None
         for i, h in enumerate(processed_hints):
             if h['hintDirection'] == 'long' or h['hintDirection'] == 'short':
