@@ -46,7 +46,7 @@ def hints_import():
             current_hint = None
 
         if not current_hint:
-            if doc["position"] not in ["long", "short"]:
+            if doc["position"] not in ["long", "short", "cancel"]:
                 continue
             current_hint = doc
             continue
@@ -88,7 +88,7 @@ def add_cancel(hints_list):
 
 def make_hints_list():
     hints_list = hints_import()
-    hints_list = add_cancel(hints_list)
+    #hints_list = add_cancel(hints_list)
     # hints_list = add_changes(hints_list)
     return hints_list
 
