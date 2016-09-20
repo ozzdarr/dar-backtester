@@ -98,10 +98,10 @@ def current_bot_strategy(hint, bars, options, general):
     # Unreasonable hint trigger
     if entry_bar:
         if hint['position'] == 'long':
-            if (bars[entry_index]['high'] - entry_price) > 2:
+            if (bars[entry_index]['low'] - entry_price) > 0.05:
                 entry_bar = None
         elif hint['position'] == 'short':
-            if (entry_price - bars[entry_index]['low']) > 2:
+            if (entry_price - bars[entry_index]['high']) > 0.05:
                 entry_bar = None
 
     if not entry_bar:
