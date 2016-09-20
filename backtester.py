@@ -7,7 +7,7 @@ import pymongo
 import datetime
 import progressbar
 from ib_bars import BarsService, convert_bars_size
-from megamot_hints_db import make_hints_list
+from db_collector import make_hints_list
 
 from time import sleep
 
@@ -335,12 +335,6 @@ def static_stop_query(bar,static_stop,direction):
             }
 
     return processed_hint
-
-
-
-
-
-
 
 
 
