@@ -2,7 +2,7 @@
 
 import csv
 from io import StringIO
-
+from math import fabs
 import pymongo
 import datetime
 import progressbar
@@ -18,8 +18,8 @@ OPTIONS = {
     "exit1to1_var": 0,
     "bar_size": 5,
     "exit_var": 0,
-    "slippage": 0.02,
-    'commission': 0.01
+    "slippage": 0.0311,
+    'commission': 0.012
 
 }
 
@@ -188,7 +188,11 @@ def current_bot_strategy(hint, bars, options, general):
 def one_to_one(hint, bars, options, general):
     processed_hint = None
     stop = hint['stop']
-    stop_delta = abs(hint['price'] - hint['stop'])
+    if hint['position'] == 'long':
+        stop_delta = (hint['price'] - hint['stop'])
+    elif hint['position'] == 'short':
+        stop_delta =  hint['stop']- hint['price']
+
     slippage = options['slippage']
 
     # Target
@@ -226,7 +230,7 @@ def one_to_one(hint, bars, options, general):
                                                      options)
             return processed_hint
 
-        exit_bar, exit_price = static_stop_query(bar, target, hint['position'])
+        exit_bar, exit_price = static_stop_query(bar, target, hint['position'],options)
         if exit_bar:
             processed_hint = processed_hint_template(hint, entry_bar, entry_price, exit_bar, exit_price,
                                                      options)
@@ -350,7 +354,7 @@ def process_hint(hint, options, general, counter, bars_service):
                 processed_hint = general["no bars"]
 
             else:
-                processed_hint = current_bot_strategy(hint, bars, options, general)
+                processed_hint = one_to_one(hint, bars, options, general)
 
         #Todo: change this to more
         elif hint["position"] == "changed":
