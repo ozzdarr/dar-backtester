@@ -38,6 +38,8 @@ CSV_KEYS = [
     "comment"
 ]
 
+def raiseExcp(error):
+    raise error
 
 def csv_writer(listOfDicts, csv_keys):
     if len(listOfDicts):
@@ -76,6 +78,7 @@ def entry_query(hint, bars, options):
 
 def exit_query(direction, stop, bar, options):
     #Todo: change "stop" argument to "exit price". (the function will get  exit price after reducing entry_var)
+    #Todo: replace argiment "direction" with hint
     if direction == "long":
         if bar["low"] <= (stop - options['exit_var']):
             exit_bar = bar
@@ -91,6 +94,106 @@ def exit_query(direction, stop, bar, options):
             exit_bar = None
             exit_price = None
     return exit_bar, exit_price
+
+def target_query(bar,target,direction,options):
+
+    if direction == 'long':
+        if bar['high'] >= (target + options['exit_var']):
+            return bar, target
+        else:
+            return  None,None
+    elif direction == 'short':
+        if bar['low'] <= (target - options['exit_var']):
+            return bar, target
+        else:
+            return None, None
+
+def defensive_query(hint, bars, i, stop):
+    if hint['position'] == 'long':
+        if (bars[i - 3]['low'] > bars[i - 2]['low']) and (bars[i - 1]['low'] > bars[i - 2]['low']):
+            if bars[i - 2]['low'] > stop:
+                if bars[i - 2]['low'] >= 100:
+                    stop = bars[i - 2]['low'] - 0.01
+                else:
+                    stop = bars[i - 2]['low']
+    elif hint['position'] == 'short':
+        if (bars[i - 3]['high'] < bars[i - 2]['high']) and (bars[i - 1]['high'] < bars[i - 2]['high']):
+            if bars[i - 2]['high'] < stop:
+                if bars[i - 2]['high'] > 100:
+                    stop = bars[i - 2]['high'] + 0.01
+                else:
+                    stop = bars[i - 2]['high']
+
+    return stop
+
+
+
+def processed_hint_template(hint, entry_bar, entry_price, exit_bar, exit_price, options):
+    slippage = options['slippage']
+    commission = options['commission']
+    if hint['position'] == 'long':
+        processed_hint = {
+            'entryTime': entry_bar['date'],
+            'entryPrice': entry_price,
+            'exitTime': exit_bar['date'],
+            'exitPrice': exit_price,
+            'Net revenue': (exit_price - entry_price) - 2*slippage - commission,
+            'symbol': hint['sym'],
+            'hintTime': hint['time'],
+            'hintTrigger': hint['price'],
+            'hintDirection': hint['position'],
+            'hintStop': hint['stop'],
+            'slippage': slippage,
+            'comment': '-'
+        }
+    elif hint['position'] == 'short':
+        processed_hint = {
+            'entryTime': entry_bar['date'],
+            'entryPrice': entry_price,
+            'exitTime': exit_bar['date'],
+            'exitPrice': exit_price,
+            'Net revenue': (entry_price - exit_price) - 2*slippage - commission,
+            'symbol': hint['sym'],
+            'hintTime': hint['time'],
+            'hintTrigger': hint['price'],
+            'hintDirection': hint['position'],
+            'hintStop': hint['stop'],
+            'slippage': slippage,
+            'comment': '-'
+        }
+    return processed_hint
+
+
+def process_hint(hint, options, general, counter, bars_service):
+    try:
+        if (hint["position"] == "long") or (hint["position"] == "short"):
+            bars = bars_service.get_bars_list(hint)
+
+            counter = counter + 1
+            print("%d - %s" % (counter, hint["time"]))
+
+            # Check if error in importing bars
+            #Todo: add the eror to comment
+            if type(bars) is str:
+                print('ERORO' + bars)
+                processed_hint = general["no bars"]
+
+            else:
+                processed_hint = one_to_one(hint, bars, options, general)
+
+        #Todo: change this to more
+        elif hint["position"] == "changed":
+            processed_hint = general["changed"]
+        elif hint["position"] == "cancel":
+            processed_hint = general["canceled"]
+        return processed_hint, counter
+
+    except Exception as e:
+        print("Failed to process hint: %s: %s" % (hint, e))
+        return None, counter
+
+
+
 
 
 def current_bot_strategy(hint, bars, options, general):
@@ -188,19 +291,20 @@ def current_bot_strategy(hint, bars, options, general):
 def one_to_one(hint, bars, options, general):
     processed_hint = None
     stop = hint['stop']
+    slippage = options['slippage']
+    commission = options['commission']
+
+    # Stop delta
     if hint['position'] == 'long':
         stop_delta = (hint['price'] - hint['stop'])
     elif hint['position'] == 'short':
         stop_delta =  hint['stop']- hint['price']
 
-    slippage = options['slippage']
-
     # Target
     if hint['position'] == 'long':
-        target = stop_delta + hint['price'] + options['exit_var']
-
+        target = stop_delta + hint['price'] + options['exit_var'] + 2*slippage + commission
     elif hint['position'] == 'short':
-        target = hint['price'] - stop_delta - options['exit_var']
+        target = hint['price'] - stop_delta - options['exit_var'] - 2*slippage - commission
 
 
     # Check entrance in one minute bars
@@ -230,7 +334,7 @@ def one_to_one(hint, bars, options, general):
                                                      options)
             return processed_hint
 
-        exit_bar, exit_price = static_stop_query(bar, target, hint['position'],options)
+        exit_bar, exit_price = target_query(bar, target, hint['position'],options)
         if exit_bar:
             processed_hint = processed_hint_template(hint, entry_bar, entry_price, exit_bar, exit_price,
                                                      options)
@@ -242,9 +346,9 @@ def one_to_one(hint, bars, options, general):
             processed_hint = {
                 'entryTime': entry_bar['date'],
                 'entryPrice': entry_price,
-                'exitTime': bars[-10]['date'],
-                'exitPrice': bars[-10]['close'],
-                'Net revenue': bars[-10]['close'] - entry_price,
+                'exitTime': bars[-1]['date'],
+                'exitPrice': bars[-1]['close'],
+                'Net revenue': -0.0742,
                 'symbol': hint['sym'],
                 'hintTime': hint['time'],
                 'hintTrigger': hint['price'],
@@ -256,9 +360,9 @@ def one_to_one(hint, bars, options, general):
             processed_hint = {
                 'entryTime': entry_bar['date'],
                 'entryPrice': entry_price,
-                'exitTime': bars[-10]['date'],
-                'exitPrice': bars[-10]['close'],
-                'Net revenue': entry_price - bars[-10]['close'],
+                'exitTime': bars[-1]['date'],
+                'exitPrice': bars[-1]['close'],
+                'Net revenue': -0.0742,
                 'symbol': hint['sym'],
                 'hintTime': hint['time'],
                 'hintTrigger': hint['price'],
@@ -268,105 +372,6 @@ def one_to_one(hint, bars, options, general):
             }
 
     return processed_hint
-
-def static_stop_query(bar,static_stop,direction,options):
-
-    if direction == 'long':
-        if bar['high'] >= (static_stop + options['exit_var']):
-            return bar, static_stop
-        else:
-            return  None,None
-    elif direction == 'short':
-        if bar['low'] <= (static_stop - options['exit_var']):
-            return bar, static_stop
-        else:
-            return None, None
-
-
-
-def defensive_query(hint, bars, i, stop):
-    if hint['position'] == 'long':
-        if (bars[i - 3]['low'] > bars[i - 2]['low']) and (bars[i - 1]['low'] > bars[i - 2]['low']):
-            if bars[i - 2]['low'] > stop:
-                if bars[i - 2]['low'] >= 100:
-                    stop = bars[i - 2]['low'] - 0.01
-                else:
-                    stop = bars[i - 2]['low']
-    elif hint['position'] == 'short':
-        if (bars[i - 3]['high'] < bars[i - 2]['high']) and (bars[i - 1]['high'] < bars[i - 2]['high']):
-            if bars[i - 2]['high'] < stop:
-                if bars[i - 2]['high'] > 100:
-                    stop = bars[i - 2]['high'] + 0.01
-                else:
-                    stop = bars[i - 2]['high']
-
-    return stop
-
-
-def processed_hint_template(hint, entry_bar, entry_price, exit_bar, exit_price, options):
-    slippage = options['slippage']
-    commission = options['commission']
-    if hint['position'] == 'long':
-        processed_hint = {
-            'entryTime': entry_bar['date'],
-            'entryPrice': entry_price,
-            'exitTime': exit_bar['date'],
-            'exitPrice': exit_price,
-            'Net revenue': (exit_price - entry_price) - 2*slippage - commission,
-            'symbol': hint['sym'],
-            'hintTime': hint['time'],
-            'hintTrigger': hint['price'],
-            'hintDirection': hint['position'],
-            'hintStop': hint['stop'],
-            'slippage': slippage,
-            'comment': '-'
-        }
-    elif hint['position'] == 'short':
-        processed_hint = {
-            'entryTime': entry_bar['date'],
-            'entryPrice': entry_price,
-            'exitTime': exit_bar['date'],
-            'exitPrice': exit_price,
-            'Net revenue': (entry_price - exit_price) - 2*slippage - commission,
-            'symbol': hint['sym'],
-            'hintTime': hint['time'],
-            'hintTrigger': hint['price'],
-            'hintDirection': hint['position'],
-            'hintStop': hint['stop'],
-            'slippage': slippage,
-            'comment': '-'
-        }
-    return processed_hint
-
-
-def process_hint(hint, options, general, counter, bars_service):
-    try:
-        if (hint["position"] == "long") or (hint["position"] == "short"):
-            bars = bars_service.get_bars_list(hint)
-
-            counter = counter + 1
-            print("%d - %s" % (counter, hint["time"]))
-
-            # Check if error in importing bars
-            #Todo: add the eror to comment
-            if type(bars) is str:
-                print('ERORO' + bars)
-                processed_hint = general["no bars"]
-
-            else:
-                processed_hint = one_to_one(hint, bars, options, general)
-
-        #Todo: change this to more
-        elif hint["position"] == "changed":
-            processed_hint = general["changed"]
-        elif hint["position"] == "cancel":
-            processed_hint = general["canceled"]
-        return processed_hint, counter
-
-    except Exception as e:
-        print("Failed to process hint: %s: %s" % (hint, e))
-        return None, counter
-
 
 def main(options, bars_service):
 
@@ -486,9 +491,6 @@ def main(options, bars_service):
         #   break
 
     csv_writer(processed_hints,CSV_KEYS)
-
-def raiseExcp(error):
-    raise error
 
 
 if __name__ == "__main__":
