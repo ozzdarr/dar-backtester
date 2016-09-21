@@ -48,10 +48,6 @@ def current_bot_strategy(hint, bars, options):
                 return processed_hint
     # After 10:00
     elif entry_index > 29:
-
-        # defensive pattern in 3 bars before entrance?
-        # stop = defensive_query(hint,bars_5m,int(entry_index/5),stop)
-
         # Start checking exit from one bar after entrance and on
         for i in range(int(entry_index / 5) + 1, len(bars_5m)):
 
@@ -97,6 +93,7 @@ def current_bot_strategy(hint, bars, options):
 
     return processed_hint
 
+
 def one_to_one(hint, bars, options):
     processed_hint = None
     stop = hint['stop']
@@ -135,6 +132,7 @@ def one_to_one(hint, bars, options):
         processed_hint = processed_hint_template(hint,options)
         processed_hint['comment'] = 'Unreasonable hint price'
         return processed_hint
+
 
     for bar in left_bars[1:]:
         exit_bar, exit_price = exit_query(hint['position'], stop, bar, options)

@@ -43,19 +43,16 @@ def process_hint(hint, options, counter, bars_service):
     try:
         if (hint["position"] == "long") or (hint["position"] == "short"):
             bars = bars_service.get_bars_list(hint)
-
             counter = counter + 1
             print("%d - %s" % (counter, hint["time"]))
 
             # Check if error in importing bars
             #Todo: add the eror to comment
             if type(bars) is str:
-                print('ERORO' + bars)
+                print('ERROR' + bars)
                 processed_hint = processed_hint_template(hint,options)
-
             else:
                 processed_hint = current_bot_strategy(hint, bars, options)
-
 
         elif hint["position"] == "cancel":
             processed_hint = processed_hint_template(hint,options)
