@@ -128,25 +128,29 @@ def megamot_ignored_csv():
     db = mongo.db_production
     ignored = db.megamot_ignored
     ignored = ignored.find({})
+    print(ignored[1].keys())
     ignored_feeds = list()
-    for doc in ignored:
-        new = dict()
-
-        new['msg'] = doc['msg']
-        ignored_feeds.append(new)
-
+   # for doc in ignored:
+   #     new = dict()
+   #     new['msg'] = doc['msg']
+   #     ignored_feeds.append(new)
+#
 
     csv_keys = [
-
         'msg',
-
+        'prices',
+        'syms',
+        'ref',
+        'positions',
+        '_id',
+        'risk_prices'
     ]
     with open(r"Ignored Megamot feeds.csv", "w") as output:
         writer = csv.DictWriter(output, csv_keys)
         writer.writeheader()
-        writer.writerows(ignored_feeds)
+        writer.writerows(ignored)
 
-megamot_ignored_csv()
+
 
 
 
