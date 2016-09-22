@@ -277,6 +277,50 @@ def value_check(hint, bars, options):
                 }
 
             return processed_hint
+
+    if stop_reach_bar or target_reach_bar:
+        if omega:
+            exit_bar = stop_reach_bar
+            exit_price = stop_reach_price
+        elif alpha:
+            exit_bar = target_reach_bar
+            exit_price = target_reach_price
+
+        if hint['position'] == 'long':
+            processed_hint = {
+                'entryTime': entry_bar['date'],
+                'entryPrice': entry_price,
+                'exitTime': exit_bar['date'],
+                'exitPrice': exit_price,
+                'Net revenue': exit_price - entry_price - 2 * slippage - commission,
+                'symbol': hint['sym'],
+                'hintTime': hint['time'],
+                'hintTrigger': hint['price'],
+                'hintDirection': hint['position'],
+                'hintStop': hint['stop'],
+                'alpha': alpha,
+                'omega': omega,
+                'slippage': slippage,
+                'comment': '-'
+            }
+        elif hint['position'] == 'short':
+            processed_hint = {
+                'entryTime': entry_bar['date'],
+                'entryPrice': entry_price,
+                'exitTime': exit_bar['date'],
+                'exitPrice': exit_price,
+                'Net revenue': entry_price - exit_price - 2 * slippage - commission,
+                'symbol': hint['sym'],
+                'hintTime': hint['time'],
+                'hintTrigger': hint['price'],
+                'hintDirection': hint['position'],
+                'hintStop': hint['stop'],
+                'alpha': alpha,
+                'omega': omega,
+                'slippage': slippage,
+                'comment': '-'
+            }
+
     if not processed_hint:
         processed_hint = {
             'entryTime': entry_bar['date'],

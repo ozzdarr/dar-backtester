@@ -29,7 +29,7 @@ def hints_import():
     for doc in all_hints:
         doc['refTime'] = doc['refTime'].replace(microsecond=0)
         #if doc["source"] != "simple_trade":
-        #    continue
+         #   continue
 
         if doc["source"] != "megamot":
             continue
