@@ -8,12 +8,12 @@ from strategies import *
 
 
 OPTIONS = {
-    "entry_var": 0.01,
-    "stop_var": 0.01,
+    "entry_var": 0.0,
+    "stop_var": 0.0,
     "exit1to1_var": 0,
     "bar_size": 5,
-    "exit_var": 0.01,
-    "slippage": 0.02,
+    "exit_var": 0.0,
+    "slippage": 0.0,
     'commission': 0
 
 }
@@ -32,6 +32,25 @@ CSV_KEYS = [
     "slippage",
     "comment"
 ]
+
+CSV_VALUE_CHECK = [
+    "hintTime",
+    "symbol",
+    "hintTrigger",
+    "hintDirection",
+    "hintStop",
+    "entryTime",
+    "entryPrice",
+    "exitTime",
+    "exitPrice",
+    "Net revenue",
+    'alpha',
+    'omega',
+    "slippage",
+    "comment"
+
+]
+
 
 def raiseExcp(error):
     raise error
@@ -52,7 +71,7 @@ def process_hint(hint, options, counter, bars_service):
                 print('ERROR' + bars)
                 processed_hint = processed_hint_template(hint,options)
             else:
-                processed_hint = current_bot_strategy(hint, bars, options)
+                processed_hint = value_check(hint, bars, options)
 
         elif hint["position"] == "cancel":
             processed_hint = processed_hint_template(hint,options)
@@ -126,7 +145,7 @@ def main(options, bars_service):
         # if len(processed_hints) > 3:
         #   break
 
-    csv_writer(processed_hints,CSV_KEYS)
+    csv_writer(processed_hints,CSV_VALUE_CHECK)
 
 
 if __name__ == "__main__":

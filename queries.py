@@ -76,3 +76,31 @@ def defensive_query(hint, bars, i, stop):
                     stop = bars[i - 2]['high']
 
     return stop
+
+
+def omega_query(hint, bar, omega=0):
+    if hint['position'] == 'long':
+        if not omega:
+            omega = bar['low']
+        elif bar['low'] < omega:
+            omega = bar['low']
+    elif hint['position'] == 'short':
+        if not omega:
+            omega = bar['high']
+        if bar['high'] > omega:
+            omega = bar['high']
+    return omega
+
+
+def alpha_qury(hint, bar, alpha=0):
+    if hint['position'] == 'long':
+        if not alpha:
+            alpha = bar['high']
+        if bar['high'] > alpha:
+            alpha = bar['high']
+    elif hint['position'] == 'short':
+        if not alpha:
+            alpha = bar['low']
+        if bar['low'] < alpha:
+            alpha = bar['low']
+    return alpha
