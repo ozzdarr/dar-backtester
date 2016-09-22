@@ -2,19 +2,21 @@
 from ib.opt import ibConnection, message
 from ib.ext.Contract import Contract
 from time import sleep, strftime
-from datetime import datetime
 from rx.subjects import ReplaySubject
 import threading
 import logging
 import sys
 import pytz
 import tzlocal
-from datetime import timedelta
+from datetime import timedelta, datetime
 from collections import namedtuple
 import pickle
 import os
+import moment
+from time import mktime
 
-__all__ = ["BarsOptions",
+__all__ = ["QueryDuration",
+           "BarsOptions",
            "BarsService",
            "convert_bars_size"]
 
@@ -63,6 +65,75 @@ BarsOptions = namedtuple("BarsOptions", [
     "cacheFile",
 ])
 
+class QueryDuration(namedtuple("QueryDuration",
+    ["years", "months", "weeks", "days", "hours", "minutes", "seconds"]
+)):
+    @staticmethod
+    def __new__ (cls, *args, **kargs):
+        if len(kargs) > 1:
+            raise Exception("Duration support only 1 unit")
+        if len(args) > 0:
+            raise Exception("Duration support only named arguments")
+
+        new_kargs = dict([(key, 0) for key in cls._fields])
+        provided = list(kargs.keys())[0]
+        new_kargs[provided] = kargs[provided]
+
+        return super(QueryDuration, cls).__new__(cls, *args, **new_kargs)
+
+    def __init__(self, *args, **kargs):
+        super(QueryDuration, self).__init__()
+        self._as_string = self._to_string()
+
+    @property
+    def fields(self):
+        return dict([(key, getattr(self, key)) for key in self._fields])
+
+    @staticmethod
+    def _format_value(value, unit):
+        return ({
+            "years": value,
+            "months": value,
+            "weeks": value,
+            "days": value,
+            "hours": value * 60 * 60,
+            "minutes": value * 60,
+            "seconds": value,
+        }[unit])
+
+    @staticmethod
+    def _format_string(value, unit):
+        value = QueryDuration._format_value(value, unit)
+        return "%d %s" % (value, {
+            "years": "Y",
+            "months": "M",
+            "weeks": "W",
+            "days": "D",
+            "hours": "S",
+            "minutes": "S",
+            "seconds": "S"
+        }[unit])
+
+    def _to_string(self):
+        for field in self._fields:
+            value = getattr(self, field)
+            if value == 0:
+                continue
+            return QueryDuration._format_string(value, field)
+
+    def get_relative_formatted(self, date):
+        """ Date should be either date or string YYYYMMDD """
+
+        if type(date) is str:
+            date = datetime.strptime("%s 16:30" % date, "%Y%m%d %H:%M")
+
+        m = moment.unix(mktime(date.timetuple()))
+        return m.add(**self.fields).format("YYYYMMDD HH:mm:ss")
+
+    @property
+    def as_string(self):
+        return self._as_string
+
 class BarsService(object):
     def __init__(self, options=BarsOptions(**{
         "twsHost": "localhost",
@@ -75,11 +146,21 @@ class BarsService(object):
         self._connected = False
         self._ticker_id = 1
         self._conn = None
-        self._cache = {}
+        self._cache = {
+            'bars': {},
+            'expanded_bars': {},
+        }
 
         if os.path.isfile(options.cacheFile):
             with open(options.cacheFile, "rb") as f:
                 self._cache = pickle.load(f)
+
+        # Upgrading bars cache from bars only to bars + expanded.
+        if 'bars' not in self._cache:
+            self._cache = {
+                'bars': self._cache,
+                'expanded_bars': {},
+            }
 
     def disconnect(self):
         self._connected
@@ -89,21 +170,32 @@ class BarsService(object):
             self._connected = False
             self._conn = None
 
-    def get_bars_list(self, hint, bar_size="1 min"):
-        hint_date, hint_sym = self._hint_datesym_import(hint)
-        if hint_sym not in self._cache:
-            self._cache[hint_sym] = {}
+    def _query(self, query_type, hint_date, hint_sym, fetcher=None):
+        if hint_sym not in self._cache[query_type]:
+            self._cache[query_type][hint_sym] = {}
 
-        if hint_date not in self._cache[hint_sym]:
+        if hint_date not in self._cache[query_type][hint_sym]:
             try:
-                self._cache[hint_sym][hint_date] = self._ib_bars_list(hint_date, hint_sym, bar_size)
+                self._cache[query_type][hint_sym][hint_date] = fetcher(hint_date, hint_sym)
                 self._save_cache()
             except Exception as e:
-                print ("failed to obtain bars for %s: %s" % (hint["sym"], e))
+                print ("failed to obtain bars for %s: %s" % (hint_sym, e))
                 return e.args[0]
 
-        return self._cache[hint_sym][hint_date]
+        return self._cache[query_type][hint_sym][hint_date]
 
+    def expand_bar(self, hint_date, hint_sym, duration=None):
+        return self._query('expanded_bars',
+                           hint_date,
+                           hint_sym,
+                           lambda x, y: self._ib_bars_list(x, y, "1 secs", duration))
+
+    def get_bars_list(self, hint, bar_size="1 min"):
+        hint_date, hint_sym = self._hint_datesym_import(hint)
+        return self._query('bars',
+                           hint_date,
+                           hint_sym,
+                           lambda x, y: self._ib_bars_list(x, y, bar_size))
     def _connect(self):
         self._conn = ibConnection(host=self._opts.twsHost,
                                   port=self._opts.twsPort,
@@ -115,10 +207,14 @@ class BarsService(object):
         print("Connected to IB")
         self._connected = True
 
-    def _ib_bars_import(self, hint_date, hint_sym, bar_size="1 min",durationStr='1 D', verbose=False):
+    def _ib_bars_import(self, hint_date, hint_sym, bar_size="1 min",
+                        duration=None, verbose=False):
         """ Hint_date => YYYYMMD format """
         if bar_size == 5:
             bar_size=='5 mins'
+
+        if not duration:
+            duration = QueryDuration(days=1)
 
         # Generate Event to wait for
         e = threading.Event()
@@ -126,13 +222,13 @@ class BarsService(object):
         # Generate Observable for results
         retObservable = ReplaySubject()
 
-        if (self._ticker_id % 60) == 0:
-            print('sleeping 10 minutes')
-            #sleep(600)
-
         # Connect To IB
         if not self._connected:
             self._connect()
+
+        if (self._ticker_id % 60) == 0:
+            print('sleeping 10 minutes')
+            sleep(600)
 
         # Register input processing function
         def processInput(x):
@@ -160,12 +256,13 @@ class BarsService(object):
         self._conn.registerAll(processInput)
 
         # Request data from server
-        endtime = "%s 23:00:00" % hint_date
+        endtime = duration.get_relative_formatted(hint_date)
+
         self._conn.reqHistoricalData(
             tickerId=self._ticker_id,
             contract=_make_contract(hint_sym),
             endDateTime=endtime,
-            durationStr=durationStr,
+            durationStr=duration.as_string,
             barSizeSetting=bar_size,
             whatToShow='TRADES',
             useRTH=1,
@@ -183,12 +280,13 @@ class BarsService(object):
 
         return retObservable.as_observable()
 
-    def _ib_bars_list(self, hint_date, hint_sym, bar_size):
+    def _ib_bars_list(self, hint_date, hint_sym, bar_size, duration=None):
         # bar_size "1 m" or "5 m"
         # hint_date YYMMDD
         if bar_size == 5:
             bar_size = '5 mins'
-        bars_obs = self._ib_bars_import(hint_date,hint_sym,bar_size)
+
+        bars_obs = self._ib_bars_import(hint_date,hint_sym,bar_size,duration)
         if not bars_obs:
             return None
         arr_bars = list()

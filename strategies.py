@@ -3,16 +3,17 @@ from queries import *
 from ib_bars import convert_bars_size
 from csv_templates import *
 
-def current_bot_strategy(hint, bars, options):
-    return defensive_strategy(hint, bars, options)
+def current_bot_strategy(hint, bars, options, bars_service):
+    return defensive_strategy(hint, bars, options, bars_service)
 
-def defensive_strategy(hint, bars, options):
+def defensive_strategy(hint, bars, options, bars_service):
     processed_hint = None
     stop = hint['stop']
     bars_5m = convert_bars_size(bars, 5)
 
     # Check entrance in one minute bars
-    entry_index, entry_bar, entry_price, left_bars = entry_query(hint, bars, options)
+    entry_index, entry_bar, entry_price, left_bars = entry_query(hint, bars,
+                                                                 options, bars_service)
     if not entry_bar:
         processed_hint = processed_hint_template(hint,options)
         return processed_hint
@@ -67,7 +68,7 @@ def defensive_strategy(hint, bars, options):
 
     return processed_hint
 
-def one_to_one(hint, bars, options):
+def one_to_one(hint, bars, options, bars_service):
     processed_hint = None
     stop = hint['stop']
     slippage = options['slippage']
@@ -86,7 +87,9 @@ def one_to_one(hint, bars, options):
         target = hint['price'] - stop_delta - options['exit_var'] - 2*slippage - commission
 
     # Check entrance in one minute bars
-    entry_index, entry_bar, entry_price, left_bars = entry_query(hint, bars, options)
+    entry_index, entry_bar, entry_price, left_bars = entry_query(hint, bars,
+                                                                 options,
+                                                                 bars_service)
     if not entry_bar:
         processed_hint = processed_hint_template(hint,options)
         return processed_hint

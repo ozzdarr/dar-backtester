@@ -1,6 +1,13 @@
+from ib_bars import QueryDuration
 
+def entry_query(hint, bars, options, bars_service):
+    entry_index, entry_bar, entry_price, left_bars  = _entry_query(hint, bars, options)
+    if entry_bar:
+        seconds_bar = bars_service.expand_bar(entry_bar["date"], hint["sym"], QueryDuration(minutes=1))
+        # DAR-TODO: Continue processing seconds
+    return entry_index, entry_bar, entry_price, left_bars
 
-def entry_query(hint, bars, options):
+def _entry_query(hint, bars, options):
     # Todo: add 0.05 interval
     # did the hint entered a position?
 

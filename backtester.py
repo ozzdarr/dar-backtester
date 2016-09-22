@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 
-from ib_bars import *
 from db_collector import *
 from strategies import *
 from processedHint import ProcessedHint
+from ib_bars import BarsService
 
 OPTIONS = {
     "entry_var": 0.01,
@@ -32,13 +32,13 @@ def process_hint(hint, options, counter, bars_service):
             if type(bars) is str:
                 processed_hint = processed_hint_template(hint, options, bars=bars)
             else:
-                processed_hint = current_bot_strategy(hint, bars, options)
+                processed_hint = current_bot_strategy(hint, bars, options, bars_service)
         elif hint.isCancel:
             processed_hint = processed_hint_template(hint, options)
 
         return processed_hint, counter
     except Exception as e:
-        return "Failed to process hint: %s: %s" % (hint, e)
+        return ("Failed to process hint: %s: %s" % (hint, e), counter)
 
 def process_hints(hints_list, options, bars_service):
     processed_hints = list()
