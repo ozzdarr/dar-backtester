@@ -340,5 +340,82 @@ def value_check(hint, bars, options):
         }
     return processed_hint
 
+def risk_chance(hint, bars, options):
+    processed_hint = None
+    stop = hint['stop']
+    slippage = options['slippage']
+    commission = options['commission']
+    stop_delta = fabs(hint['price'] - hint['stop'])
+    potential_price = None
+    potential_time = None
+    exit_bar = None
+
+
+
+
+    # Check entrance in one minute bars
+    entry_index, entry_bar, entry_price, left_bars = entry_query(hint, bars, options)
+    if not entry_bar:
+        processed_hint = processed_hint_template(hint,options)
+        return processed_hint
+    # Unreasonable hint trigger
+    # Todo: put this inside entry_query()
+    if entry_bar:
+        if hint['position'] == 'long':
+            if (bars[entry_index]['low'] - entry_price) > 0.05:
+                entry_bar = None
+        elif hint['position'] == 'short':
+            if (entry_price - bars[entry_index]['high']) > 0.05:
+                entry_bar = None
+    if not entry_bar:
+        processed_hint = processed_hint_template(hint,options)
+        processed_hint['comment'] = 'Unreasonable hint price'
+        return processed_hint
+
+    for bar in left_bars[1:]:
+        exit_bar, exit_price = exit_query(hint['position'],stop,bar,options)
+        potential_price, potential_time = potential_query(hint,bar,potential_price,potential_time)
+
+        if exit_bar:
+            processed_hint = {
+                'entryTime': entry_bar['date'],
+                'entryPrice': entry_price,
+                'exitTime': exit_bar['date'],
+                'exitPrice': exit_price,
+                'risk': stop_delta + (2 * slippage) + commission,
+                'symbol': hint['sym'],
+                'hintTime': hint['time'],
+                'hintTrigger': hint['price'],
+                'hintDirection': hint['position'],
+                'hintStop': hint['stop'],
+                'potential price': potential_price,
+                'potential time': potential_time,
+                'chance': fabs(potential_price - hint['price']) - (2*slippage) - commission,
+                'slippage': slippage,
+                'comment': '-',
+                'chance/risk ratio': (fabs(potential_price - hint['price']) - (2*slippage) - commission)/(stop_delta + (2 * slippage) + commission),
+            }
+            return processed_hint
+    if not exit_bar:
+        processed_hint = {
+            'entryTime': entry_bar['date'],
+            'entryPrice': entry_price,
+            'exitTime': bars[-1]['date'],
+            'exitPrice': 0,
+            'risk': stop_delta + (2 * slippage) + commission,
+            'symbol': hint['sym'],
+            'hintTime': hint['time'],
+            'hintTrigger': hint['price'],
+            'hintDirection': hint['position'],
+            'hintStop': hint['stop'],
+            'potential price': potential_price,
+            'potential time': potential_time,
+            'chance': fabs(potential_price - hint['price']) - (2 * slippage) - commission,
+            'slippage': slippage,
+            'comment': '-',
+            'chance/risk ratio': (fabs(potential_price - hint['price']) - (2 * slippage) - commission) / (
+            stop_delta + (2 * slippage) + commission)
+        }
+    return processed_hint
 
 

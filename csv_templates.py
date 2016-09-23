@@ -3,7 +3,7 @@ from math import fabs
 
 def csv_writer(listOfDicts, csv_keys):
     if len(listOfDicts):
-        with open(r"value check.csv", "w") as output:
+        with open(r"risk-chance.csv", "w") as output:
             writer = csv.DictWriter(output, csv_keys)
             writer.writeheader()
             writer.writerows(listOfDicts)

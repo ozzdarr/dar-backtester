@@ -13,8 +13,8 @@ OPTIONS = {
     "exit1to1_var": 0,
     "bar_size": 5,
     "exit_var": 0.0,
-    "slippage": 0.0,
-    'commission': 0
+    "slippage": 0.03,
+    'commission': 0.01
 
 }
 
@@ -51,6 +51,27 @@ CSV_VALUE_CHECK = [
 
 ]
 
+KEYS_RISK_CHANCE = [
+    "hintTime",
+    "symbol",
+    "hintTrigger",
+    "hintDirection",
+    "hintStop",
+    "entryTime",
+    "entryPrice",
+    "exitTime",
+    "exitPrice",
+    "potential price",
+    'potential time',
+    'risk',
+    'chance',
+    'chance/risk ratio',
+    "slippage",
+    'Net revenue',
+    "comment"
+
+]
+
 
 def raiseExcp(error):
     raise error
@@ -71,7 +92,7 @@ def process_hint(hint, options, counter, bars_service):
                 print('ERROR' + bars)
                 processed_hint = processed_hint_template(hint,options)
             else:
-                processed_hint = value_check(hint, bars, options)
+                processed_hint = risk_chance(hint, bars, options)
 
         elif hint["position"] == "cancel":
             processed_hint = processed_hint_template(hint,options)
@@ -138,14 +159,14 @@ def main(options, bars_service):
                                                counter, bars_service)
         #Todo: add failed to process hint to processed_hints
         if not processed_hint:
-            print("failed process_hint")
+            print("failed process_hint", hint)
             continue
 
         processed_hints.append(processed_hint)
         # if len(processed_hints) > 3:
         #   break
 
-    csv_writer(processed_hints,CSV_VALUE_CHECK)
+    csv_writer(processed_hints,KEYS_RISK_CHANCE)
 
 
 if __name__ == "__main__":

@@ -104,3 +104,20 @@ def alpha_qury(hint, bar, alpha=0):
         if bar['low'] < alpha:
             alpha = bar['low']
     return alpha
+
+def potential_query(hint, bar, potential_price, potential_time):
+    if hint['position'] == 'long':
+        if not potential_price:
+            potential_price = bar['high']
+            potential_time = bar['date']
+        if bar['high'] > potential_price:
+            potential_price = bar['high']
+            potential_time = bar['date']
+    elif hint['position'] == 'short':
+        if not potential_price:
+            potential_price = bar['low']
+            potential_time = bar['date']
+        if bar['low'] < potential_price:
+            potential_price = bar['low']
+            potential_time = bar['date']
+    return potential_price, potential_time
