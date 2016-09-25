@@ -61,7 +61,7 @@ BarsOptions = namedtuple("BarsOptions", [
     "twsPort",
     "twsClientId",
     "cacheFile",
-]);
+])
 
 class BarsService(object):
     def __init__(self, options=BarsOptions(**{
@@ -78,7 +78,8 @@ class BarsService(object):
         self._cache = {}
 
         if os.path.isfile(options.cacheFile):
-            self._cache = pickle.load(open(options.cacheFile, "rb"))
+            with open(options.cacheFile, "rb") as f:
+                self._cache = pickle.load(f)
 
     def disconnect(self):
         self._connected
@@ -203,7 +204,8 @@ class BarsService(object):
         return (hint_date, hint_sym)
 
     def _save_cache(self):
-        pickle.dump(self._cache, open(self._opts.cacheFile, "wb"))
+        with open(self._opts.cacheFile, "wb") as f:
+            pickle.dump(self._cache, f)
 
     def __del__(self):
         self.disconnect()

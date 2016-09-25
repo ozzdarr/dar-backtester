@@ -3,10 +3,10 @@ from queries import *
 from ib_bars import convert_bars_size
 from csv_templates import *
 
-
-
-
 def current_bot_strategy(hint, bars, options):
+    return defensive_strategy(hint, bars, options)
+
+def defensive_strategy(hint, bars, options):
     processed_hint = None
     stop = hint['stop']
     bars_5m = convert_bars_size(bars, 5)
@@ -19,16 +19,15 @@ def current_bot_strategy(hint, bars, options):
 
     # Unreasonable hint trigger
     if entry_bar:
-        if hint['position'] == 'long':
+        if hint.isLong:
             if (bars[entry_index]['low'] - entry_price) > 0.05:
                 entry_bar = None
-        elif hint['position'] == 'short':
+        elif hint.isShort:
             if (entry_price - bars[entry_index]['high']) > 0.05:
                 entry_bar = None
 
     if not entry_bar:
-        processed_hint = processed_hint_template(hint,options)
-        processed_hint['comment'] = 'Unreasonable hint price'
+        processed_hint = processed_hint_template(hint, options, error='Unreasonable hint price')
         return processed_hint
 
     # Before 10:00
@@ -64,35 +63,9 @@ def current_bot_strategy(hint, bars, options):
 
     # Define processed hint 10 min before end of day
     if not processed_hint:
-        if hint['position'] == 'long':
-            processed_hint = {
-                'entryTime': entry_bar['date'],
-                'entryPrice': entry_price,
-                'exitTime': bars[-10]['date'],
-                'exitPrice': bars[-10]['close'],
-                'Net revenue': bars[-10]['close'] - entry_price,
-                'symbol': hint['sym'],
-                'hintTime': hint['time'],
-                'hintTrigger': hint['price'],
-                'hintDirection': hint['position'],
-                'hintStop': hint['stop']
-            }
-        elif hint['position'] == 'short':
-            processed_hint = {
-                'entryTime': entry_bar['date'],
-                'entryPrice': entry_price,
-                'exitTime': bars[-10]['date'],
-                'exitPrice': bars[-10]['close'],
-                'Net revenue': entry_price - bars[-10]['close'],
-                'symbol': hint['sym'],
-                'hintTime': hint['time'],
-                'hintTrigger': hint['price'],
-                'hintDirection': hint['position'],
-                'hintStop': hint['stop']
-            }
+        processed_hint = processed_hint_template(hint,options,entry_bar, entry_price, bars[-10], bars[-10]['close'],bars)
 
     return processed_hint
-
 
 def one_to_one(hint, bars, options):
     processed_hint = None
@@ -101,17 +74,16 @@ def one_to_one(hint, bars, options):
     commission = options['commission']
 
     # Stop delta
-    if hint['position'] == 'long':
+    if hint.isLong:
         stop_delta = (hint['price'] - hint['stop'])
-    elif hint['position'] == 'short':
+    elif hint.isShort:
         stop_delta =  hint['stop']- hint['price']
 
     # Target
-    if hint['position'] == 'long':
+    if hint.isLong:
         target = stop_delta + hint['price'] + options['exit_var'] + 2*slippage + commission
-    elif hint['position'] == 'short':
+    elif hint.isShort:
         target = hint['price'] - stop_delta - options['exit_var'] - 2*slippage - commission
-
 
     # Check entrance in one minute bars
     entry_index, entry_bar, entry_price, left_bars = entry_query(hint, bars, options)
@@ -122,17 +94,15 @@ def one_to_one(hint, bars, options):
     # Unreasonable hint trigger
     # Todo: put this inside entry_query()
     if entry_bar:
-        if hint['position'] == 'long':
+        if hint.isLong:
             if (bars[entry_index]['low'] - entry_price) > 0.05:
                 entry_bar = None
-        elif hint['position'] == 'short':
+        elif hint.isShort:
             if (entry_price - bars[entry_index]['high']) > 0.05:
                 entry_bar = None
     if not entry_bar:
-        processed_hint = processed_hint_template(hint,options)
-        processed_hint['comment'] = 'Unreasonable hint price'
+        processed_hint = processed_hint_template(hint,options,error='Unreasonable hint price')
         return processed_hint
-
 
     for bar in left_bars[1:]:
         exit_bar, exit_price = exit_query(hint['position'], stop, bar, options)
@@ -147,33 +117,6 @@ def one_to_one(hint, bars, options):
 
     # Define processed hint 10 min before end of day
     if not processed_hint:
-        if hint['position'] == 'long':
-            processed_hint = {
-                'entryTime': entry_bar['date'],
-                'entryPrice': entry_price,
-                'exitTime': bars[-1]['date'],
-                'exitPrice': bars[-1]['close'],
-                'Net revenue': -0.0742,
-                'symbol': hint['sym'],
-                'hintTime': hint['time'],
-                'hintTrigger': hint['price'],
-                'hintDirection': hint['position'],
-                'hintStop': hint['stop'],
-                'comment': '-'
-            }
-        elif hint['position'] == 'short':
-            processed_hint = {
-                'entryTime': entry_bar['date'],
-                'entryPrice': entry_price,
-                'exitTime': bars[-1]['date'],
-                'exitPrice': bars[-1]['close'],
-                'Net revenue': -0.0742,
-                'symbol': hint['sym'],
-                'hintTime': hint['time'],
-                'hintTrigger': hint['price'],
-                'hintDirection': hint['position'],
-                'hintStop': hint['stop'],
-                'comment': '-'
-            }
-
+        processed_hint = processed_hint_template(hint,options,entry_bar,
+                                                 entry_price, bars[-1], bars[-1]['close'],bars)
     return processed_hint
