@@ -3,7 +3,7 @@ from math import fabs
 
 def csv_writer(listOfDicts, csv_keys):
     if len(listOfDicts):
-        with open(r"one to one.csv", "w") as output:
+        with open("BT - Current bot strategy.csv", "w") as output:
             writer = csv.DictWriter(output, csv_keys)
             writer.writeheader()
             writer.writerows(listOfDicts)
@@ -27,7 +27,7 @@ def processed_hint_template(hint,options, entry_bar=None, entry_price=None, exit
             'slippage': '-',
             'comment': '-'
         }
-    if not entry_bar:
+    elif not entry_bar:
         processed_hint = {
             'entryTime': 'did not enter',
             'entryPrice': 'did not enter',
@@ -42,7 +42,7 @@ def processed_hint_template(hint,options, entry_bar=None, entry_price=None, exit
             'slippage': '-',
             'comment': '-'
         }
-    if hint['position'] == 'cancel' :
+    elif hint['position'] == 'cancel' :
         processed_hint = {
         'entryTime': hint['position'],
         'entryPrice': hint['position'],
@@ -57,7 +57,7 @@ def processed_hint_template(hint,options, entry_bar=None, entry_price=None, exit
         'slippage': '-',
         'comment': '-'
         }
-    if entry_bar and exit_bar:
+    elif entry_bar and exit_bar:
         if hint['position'] == 'long':
             processed_hint = {
                 'entryTime': entry_bar['date'],
@@ -88,7 +88,7 @@ def processed_hint_template(hint,options, entry_bar=None, entry_price=None, exit
                 'slippage': slippage,
                 'comment': '-'
             }
-    if entry_bar and not exit_bar:
+    elif entry_bar and not exit_bar:
         if hint['position'] == 'long':
             processed_hint = {
             'entryTime': entry_bar['date'],
