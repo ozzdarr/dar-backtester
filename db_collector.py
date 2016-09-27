@@ -54,8 +54,8 @@ def hints_import():
         hints_list.append({
             "sym": current_hint["sym"],
             "position": current_hint["position"],
-            "price": current_hint["price"],
-            "stop": doc["price"],
+            "price": round(current_hint["price"],2),
+            "stop": round(doc["price"],2),
             "time": current_hint["refTime"]
         })
 

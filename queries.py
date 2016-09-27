@@ -33,14 +33,14 @@ def exit_query(direction, stop, bar, options):
     if direction == "long":
         if bar["low"] <= (stop - options['exit_var']):
             exit_bar = bar
-            exit_price = (stop - options['exit_var'])
+            exit_price = round(stop - options['exit_var'],2)
         else:
             exit_bar = None
             exit_price = None
     elif direction == "short":
         if bar['high'] >= (stop + options['exit_var']):
             exit_bar = bar
-            exit_price = (stop + options['exit_var'])
+            exit_price = round(stop + options['exit_var'],2)
         else:
             exit_bar = None
             exit_price = None
