@@ -69,7 +69,6 @@ def process_hints(hints_list, options, bars_service):
                 else:
                     processed_hint = processed_hint_template(hint, options)
                     processed_hints.append(processed_hint)
-                break
 
         if processed_hint:
             continue
