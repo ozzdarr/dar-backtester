@@ -209,12 +209,21 @@ class BarsService(object):
 
     def _ib_bars_import(self, hint_date, hint_sym, bar_size="1 min",
                         duration=None, verbose=False):
+        tz = tzlocal.get_localzone()
         """ Hint_date => YYYYMMD format """
         if bar_size == 5:
             bar_size=='5 mins'
 
         if not duration:
             duration = QueryDuration(days=1)
+
+        if type(hint_date) is datetime:
+            # Make sure timezone fits
+            if not hint_date.tzinfo:
+                hint_date = hint_date.replace(tzinfo=pytz.utc)
+
+            if hint_date.tzinfo != tz:
+                hint_date = hint_date.astimezone(tz)
 
         # Generate Event to wait for
         e = threading.Event()
@@ -232,7 +241,6 @@ class BarsService(object):
 
         # Register input processing function
         def processInput(x):
-            tz = tzlocal.get_localzone()
             if isinstance(x, self._conn.messageTypes['historicalData']):
                 if x.date.startswith("finished"):
                     retObservable.on_completed()
