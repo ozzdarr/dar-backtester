@@ -32,7 +32,7 @@ def process_hint(hint, options, counter, bars_service):
             if type(bars) is str:
                 processed_hint = processed_hint_template(hint, options, bars=bars)
             else:
-                processed_hint = current_bot_strategy(hint, bars, options)
+                processed_hint = one_to_one(hint, bars, options)
         elif hint.isCancel:
             processed_hint = processed_hint_template(hint, options)
 

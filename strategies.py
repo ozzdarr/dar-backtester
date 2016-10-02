@@ -2,6 +2,7 @@
 from queries import *
 from ib_bars import convert_bars_size
 from csv_templates import *
+from hint import Hint
 
 def current_bot_strategy(hint, bars, options):
     return defensive_strategy(hint, bars, options)
@@ -69,9 +70,13 @@ def defensive_strategy(hint, bars, options):
 
 
 def one_to_one(hint, bars, options):
-    hint  = update_hint(hint)
+    print(hint)
+    print(hint.target)
+    hint = update_hint(hint)
+    print(hint)
     processed_hint = None
     stop = hint['stop']
+    print(stop)
     slippage = options['slippage']
     commission = options['commission']
 
@@ -118,10 +123,10 @@ def one_to_one(hint, bars, options):
 
 def update_hint(hint):
     hint = Hint(**{
-    'position': hint.position
-    'price': hint.target
-    'stop': hint.price
-    'time': hint.time
+    'position': hint.position,
+    'price': hint.target,
+    'stop': hint.price,
+    'time': hint.time,
     'sym': hint.sym
     })
     return hint
