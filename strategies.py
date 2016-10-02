@@ -67,6 +67,7 @@ def defensive_strategy(hint, bars, options):
 
     return processed_hint
 
+
 def one_to_one(hint, bars, options):
     processed_hint = None
     stop = hint['stop']
@@ -75,15 +76,15 @@ def one_to_one(hint, bars, options):
 
     # Stop delta
     if hint.isLong:
-        stop_delta = (hint['price'] - hint['stop'])
+        stop_size = (hint['price'] - hint['stop'])
     elif hint.isShort:
-        stop_delta =  hint['stop']- hint['price']
+        stop_size =  hint['stop']- hint['price']
 
     # Target
     if hint.isLong:
-        target = stop_delta + hint['price'] + options['exit_var'] + 2*slippage + commission
+        target = stop_size + hint['price'] + options['exit_var'] + 2*slippage + commission
     elif hint.isShort:
-        target = hint['price'] - stop_delta - options['exit_var'] - 2*slippage - commission
+        target = hint['price'] - stop_size - options['exit_var'] - 2*slippage - commission
 
     # Check entrance in one minute bars
     entry_index, entry_bar, entry_price, left_bars = entry_query(hint, bars, options)
@@ -120,3 +121,4 @@ def one_to_one(hint, bars, options):
         processed_hint = processed_hint_template(hint,options,entry_bar,
                                                  entry_price, bars[-1], bars[-1]['close'],bars)
     return processed_hint
+
