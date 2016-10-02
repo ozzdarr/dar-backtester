@@ -124,10 +124,21 @@ class QueryDuration(namedtuple("QueryDuration",
     def get_relative_formatted(self, date):
         """ Date should be either date or string YYYYMMDD """
 
-        if type(date) is str:
-            date = datetime.strptime("%s 16:30" % date, "%Y%m%d %H:%M")
+        tz = tzlocal.get_localzone()
 
-        m = moment.unix(mktime(date.timetuple()))
+        if type(date) is str:
+            date = datetime.strptime("%s 13:30" % date, "%Y%m%d %H:%M").replace(tzinfo=pytz.utc)
+            date = date.astimezone(tz)
+
+        if type(date) is datetime:
+            # Make sure timezone fits
+            if not date.tzinfo:
+                date = date.replace(tzinfo=pytz.utc)
+
+            if date.tzinfo != tz:
+                date = date.astimezone(tz)
+
+        m = moment.unix(mktime(date.replace(tzinfo=None).timetuple()))
         return m.add(**self.fields).format("YYYYMMDD HH:mm:ss")
 
     @property
@@ -216,14 +227,6 @@ class BarsService(object):
 
         if not duration:
             duration = QueryDuration(days=1)
-
-        if type(hint_date) is datetime:
-            # Make sure timezone fits
-            if not hint_date.tzinfo:
-                hint_date = hint_date.replace(tzinfo=pytz.utc)
-
-            if hint_date.tzinfo != tz:
-                hint_date = hint_date.astimezone(tz)
 
         # Generate Event to wait for
         e = threading.Event()
