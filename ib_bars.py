@@ -156,6 +156,7 @@ class BarsService(object):
         self._opts = options
         self._connected = False
         self._ticker_id = 1
+        self._pacing_counter = 0
         self._conn = None
         self._cache = {
             'bars': {},
@@ -238,7 +239,7 @@ class BarsService(object):
         if not self._connected:
             self._connect()
 
-        if (self._ticker_id % 60) == 0:
+        if (self._pacing_counter % 60) == 0:
             print('sleeping 10 minutes')
             sleep(600)
 
@@ -281,6 +282,8 @@ class BarsService(object):
         self._ticker_id += 1
 
         def on_complete(err=None):
+            if not err:
+                self._pacing_counter += 1
             e.set()
 
         # Register on observable to hear "Complete" event.
