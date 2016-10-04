@@ -39,19 +39,21 @@ class Hint(namedtuple("Hint", [
         elif self.isShort:
             return self.stop < self.price
         return False
-        
+
+    @property
     def stopSize(self):
-        if hint.isLong:
+        if self.isLong:
             stop_size = self.price - self.stop
-        elif hint.isShort:
+        elif self.isShort:
             stop_size =  self.stop - self.price
         return stop_size
-    
+
+    @property
     def target(self):
-        if hint.isLong:
-            target = self.stop_size + self.price #+ options['exit_var'] + 2*slippage + commission
-        elif hint.isShort:
-            target = hint.price - stop_size #- options['exit_var'] - 2*slippage - commission
+        if self.isLong:
+            target = self.stopSize + self.price #+ options['exit_var'] + 2*slippage + commission
+        elif self.isShort:
+            target = self.price - self.stopSize #- options['exit_var'] - 2*slippage - commission
         return target
         
     def __str__(self):
