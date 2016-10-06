@@ -241,7 +241,7 @@ class BarsService(object):
 
         if (self._pacing_counter % 60) == 0:
             print('sleeping 10 minutes')
-            sleep(600)
+            #sleep(600)
 
         # Register input processing function
         def processInput(x):

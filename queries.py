@@ -1,37 +1,5 @@
 from ib_bars import QueryDuration
 
-def entry_query(hint, bars, options, bars_service):
-    entry_index, entry_bar, entry_price, left_bars  = _entry_query(hint, bars, options)
-    if entry_bar:
-        seconds_bar = bars_service.expand_bar(entry_bar["date"], hint["sym"], QueryDuration(minutes=1))
-        # DAR-TODO: Continue processing seconds
-    return entry_index, entry_bar, entry_price, left_bars
-
-def _entry_query(hint, bars, options):
-    # Todo: add 0.05 interval
-    # did the hint entered a position?
-
-    entry_bar = None
-
-    if hint.isLong:
-        entry_price = hint['price'] + options["entry_var"]
-        entry_price = round(entry_price, 2)
-        for i, bar in enumerate(bars):
-            if bar['date'] >= hint['time'].replace(second=0, microsecond=0) and bar['high'] >= entry_price:
-                if bar['date'] < hint['time'].replace(hour=(hint['time'].hour + 1), second=0, microsecond=0):
-                    return i, bar, entry_price, bars[i:]
-        if not entry_bar:
-            return None, None, None, list()
-
-    elif hint.isShort:
-        entry_price = hint['price'] - options["entry_var"]
-        entry_price = round(entry_price, 2)
-        for i, bar in enumerate(bars):
-            if bar['date'] >= hint['time'].replace(second=0, microsecond=0) and bar['low'] <= entry_price:
-                if bar['date'] < hint['time'].replace(hour=(hint['time'].hour + 1), second=0, microsecond=0):
-                    return i, bar, entry_price, bars[i:]
-        if not entry_bar:
-            return None, None, None, list()
 
 def exit_query(direction, stop, bar, options):
     #Todo: change "stop" argument to "exit price". (the function will get  exit price after reducing entry_var)

@@ -77,7 +77,7 @@ def process_hints(hints_list, options, bars_service):
                                                counter, bars_service)
         # Adding failed hints as errors
         if type(processed_hint) is str:
-            processedhint = processed_hint_template(hint,
+            processed_hint = processed_hint_template(hint,
                                                     options,
                                                     error=processed_hint)
         processed_hints.append(processed_hint)
