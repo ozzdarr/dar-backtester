@@ -26,7 +26,7 @@ def processed_hint_template(hint,options, entry_bar=None, entry_price=None,
             'hintTime': hint['time'],
             'hintTrigger': hint['price'],
             'hintDirection': hint['position'],
-            'hintStop': hint['stop'],
+            'hintStop': hint['defend'],
             'slippage': '-',
             'comment': 'ERROR: %s' % error,
         }

@@ -23,7 +23,7 @@ def defensive_strategy(hint, bars, options, bars_service):
             processed_hint = processed_hint_template(hint,options,entry_bar,entry_trigger,exit_bar,exit_price)
             return  processed_hint
     if not exit_bar:
-        processed_hint = processed_hint_template(hint, options, entry_bar, entry_price)
+        processed_hint = processed_hint_template(hint, options, entry_bar, entry_trigger)
         return processed_hint
 
 
@@ -33,9 +33,10 @@ def one_to_one(hint, bars, options):
     target = hint.defaultTarget
     defend = hint.defaultDefend
 
-    entry_bar, error_processed_hint = hint.entryQuery(bars,entry_trigger)
-    if error_processed_hint:
-        return error_processed_hint
+    entry_bar = hint.entryQuery(bars,entry_trigger)
+    if not entry_bar:
+        did_not_enter_hint = processed_hint_template(hint,options)
+        return did_not_enter_hint
 
     for bar in bars:
         #Todo: change to filter
@@ -48,17 +49,17 @@ def one_to_one(hint, bars, options):
                 else:
                     exit_bar, exit_price = bar.isTargetReach
 
-            elif bar.isStopReach:
+            elif bar.isDefendReach:
                 exit_bar, exit_price = bar.isDefendReach
 
             elif bar.isTargetReach:
                 exit_bar, exit_price = bar.isTargetReach
 
             if exit_bar:
-                processed_hint = processed_hint_template(hint,options,entry_bar,entry_price,exit_bar,exit_price)
+                processed_hint = processed_hint_template(hint,options,entry_bar,entry_trigger,exit_bar,exit_price)
                 return processed_hint
 
     # Kill trade before end of day
     if not exit_bar:
-        processed_hint = processed_hint_template(hint, options, entry_bar, entry_price)
+        processed_hint = processed_hint_template(hint, options, entry_bar, entry_trigger)
         return processed_hint

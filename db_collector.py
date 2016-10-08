@@ -5,11 +5,7 @@ import pymongo
 import datetime
 from hint import Hint
 
-def default_stop(hint):
-    if hint['position'] == 'long':
-        return hint['price'] - ((hint['price'] * 0.0033) + 0.05)
-    elif hint['position'] == 'short':
-        return hint['price'] + ((hint['price'] * 0.0033) + 0.05)
+
 
 def hints_import(source="megamot"):
     mongo = pymongo.MongoClient("139.59.211.215", 27017)
@@ -35,7 +31,7 @@ def hints_import(source="megamot"):
                     "position": current_hint["position"],
                     "sym": current_hint["sym"],
                     "price": current_hint["price"],
-                    "stop": default_stop(current_hint),
+                    "defend": 0,
                     "time": current_hint["refTime"]
                 }))
             current_hint = None
@@ -50,7 +46,7 @@ def hints_import(source="megamot"):
             "sym": current_hint["sym"],
             "position": current_hint["position"],
             "price": round(current_hint["price"],2),
-            "stop": round(doc["price"],2),
+            "defend": round(doc["price"],2),
             "time": current_hint["refTime"]
         }))
 

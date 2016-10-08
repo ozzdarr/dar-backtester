@@ -1,15 +1,26 @@
 from collections import namedtuple
 from ib_bars import BarsService
-bars_service = BarsService()
 from csv_templates import *
-from refactoring_main import OPTIONS
+from ib_bars import QueryDuration
+
+bars_service = BarsService()
+OPTIONS = {
+    "entry_var": 0.01,
+    "stop_var": 0.01,
+    "exit1to1_var": 0,
+    "bar_size": 5,
+    "exit_var": 0.01,
+    "slippage": 0.02,
+    'commission': 0,
+    'max_defend_size': 1
+}
 
 
 class Hint(namedtuple("Hint", [
     "sym",
     "position",
     "price",
-    "stop",
+    "defend",
     "time"
 ])):
     def __init__(self, *args, **kargs):
@@ -33,39 +44,68 @@ class Hint(namedtuple("Hint", [
         return self.position == 'cancel'
 
     @property
+    def defendSize(self):
+        if self.isLong:
+            return self.price - self.defend
+        elif self.isShort:
+            return self.defend - self.price
+
+    @property
     def hasDirection(self):
         return self.isLong or self.isShort
 
     @property
     def hasUnreasonableStop(self):
         if self.isLong:
-            return self.stop > self.price
+            return self.defend > self.price
         elif self.isShort:
-            return self.stop < self.price
+            return self.defend < self.price
         return False
 
-    def entryQuery(self,bars,entry_trigger,bars_service=bars_service):
-        error_processed_hint = None
-        entry_bar = self._entryQuery(self,bars,entry_trigger)
+    @property
+    def defaultDefend(self):
+        if self.isLong:
+            return self.price - ((self.price * 0.0033) + 0.05)
+        elif self.isShort:
+            return self.price + ((self.price * 0.0033) + 0.05)
+
+    @property
+    def hasNoDefend(self):
+        return self.defend == 0
+
+    @property
+    def manipulateDefend(self):
+        if self.hasNoDefend or self.hasBigStop:
+            self.defend = self.defaultDefend
+            return self
+
+    @property
+    def hasBigDefend(self, options=OPTIONS):
+        return self.defendSize > options['max_defend_size']
+
+    @property
+    def entryQuery(self, bars, entry_trigger, bars_service):
+        entry_bar = self._entryQuery(self, bars, entry_trigger)
         if entry_bar:
             seconds_bar = bars_service.expand_bar(entry_bar.date, self.sym, QueryDuration(minutes=1))
-            entry_bar = self._entryQuery(self,seconds_bar,entry_trigger,bars_service)
-        else:
-            error_processed_hint = processed_hint_template(self,options)
-        return entry_bar, error_processed_hint
+            entry_bar = self._entryQuery(self, seconds_bar, entry_trigger)
+        return entry_bar
 
-    def _entryQuery(self,bars,entry_trigger):
+    @property
+    def _entryQuery(self, bars, entry_trigger):
         entry_bar = None
         if len(bars) == 60:
             hint_timeScale = 'second'
         else:
             hint_timeScale = 0
-            for bar in bars:
-                 if bar.isTriggerReach(self,entry_trigger,hint_timeScale):
-                     entry_bar = bar
-            return entry_bar
+        for bar in bars:
+            if bar.isTriggerReach(self, entry_trigger, hint_timeScale):
+                entry_bar = bar
+        return entry_bar
 
-    def returningHintsTest(hint, processed_hints, options):
+    @property
+    def returningHints(hint, processed_hints, options=OPTIONS, ignored_hint=None):
+
         for h in processed_hints:
             if h.hasDirection and h.isHintMatch(hint):
                 if type(h['entryTime']) is str:
@@ -91,13 +131,14 @@ class Hint(namedtuple("Hint", [
         else:
             return None
 
-    def importBars(hint, bars_service, counter):
-        bars = bars_service.get_bars_list(hint)
-        counter = counter + 1
-        print("%d - %s" % (counter, hint['time']))
+    @property
+    def importBars(self, counter=0, bars_service=bars_service, options=OPTIONS):
+        bars = bars_service.get_bars_list(self)
+        counter += 1
+        print("%d - %s" % (counter, self['time']))
         # Check if error in importing bars
         if type(bars) is str:
-            processed_hint = processed_hint_template(hint, options, bars=bars)
+            processed_hint = processed_hint_template(self, options, bars=bars)
             return bars, processed_hint, counter
         else:
             return bars, None, counter
