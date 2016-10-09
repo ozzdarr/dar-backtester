@@ -5,6 +5,8 @@ from strategies import one_to_one, current_bot_strategy
 from ib_bars import BarsService
 from db_collector import make_hints_list
 from processedHint import ProcessedHint
+from hint import Hint
+
 OPTIONS = {
     "entry_var": 0.01,
     "stop_var": 0.01,
@@ -21,44 +23,45 @@ OPTIONS = {
 
 CSV_KEYS = ProcessedHint._fields
 
-def process_hints(raw_hints, options):
+def process_raw_hints(raw_hints, options):
     processed_hints = list()
-    for hint in raw_hints:
+    for raw_hint in raw_hints:
         # Validation test for hint
-        hint, unvalid_processed_hint = validation_test(hint, options, processed_hints)
-        if unvalid_processed_hint:
-            processed_hints.append(unvalid_processed_hint)
+        invalid_processed_hint = validation_test(raw_hint, options, processed_hints)
+        if invalid_processed_hint:
+            processed_hints.append(invalid_processed_hint)
             continue
         else:
             # Continue process valid hints
-            processed_hint = process_valid_hint(hint, options)
+            processed_hint = process_valid_hint(raw_hint, options)
             processed_hints.append(processed_hint)
             continue
     return processed_hints
 
 def validation_test(hint, options, processed_hints):
     ignored_hint = None
-    unvalid_processed_hint = None
-    #hint = hint.manipulateDefend(options)
-    # Todo: how to manipulate defend of hint?
+    invalid_processed_hint = None
+
     if hint.hasUnreasonableStop:
-        unvalid_processed_hint = processed_hint_template(hint, options, error='Unreasonable stop')
+        invalid_processed_hint = processed_hint_template(hint, options, error='Unreasonable stop')
     if not hint.isCancel and hint.hasBigDefend(options):
-        unvalid_processed_hint = processed_hint_template(hint, options, error='Unreasonable stop - too big')
+        invalid_processed_hint = processed_hint_template(hint, options, error='Unreasonable stop - too big')
     if len(processed_hints):
         ignored_hint = hint.returningHints(processed_hints, options)
     if ignored_hint:
-        unvalid_processed_hint = ignored_hint
+        invalid_processed_hint = ignored_hint
     if hint.isCancel:
         unvalid_processed_hint = processed_hint_template(hint, options)
 
-    if unvalid_processed_hint:
+    if invalid_processed_hint:
         return hint, unvalid_processed_hint
     else:
         return hint, None
 
-def process_valid_hint(hint, options):
+def process_valid_hint(raw_hint, options):
     # Import bars
+    hint = Hint(raw_hint).manipulateDefend(options)
+
     bars, error_processed_hint = hint.importBars(options=options)
 
     # If there was an error in importing
@@ -71,7 +74,7 @@ def process_valid_hint(hint, options):
         return processed_hint
 
 def main(options):
-    processed_hints = process_hints(make_hints_list(), options)
+    processed_hints = process_raw_hints(make_hints_list(), options)
     if not len(processed_hints):
         print("No results - No output")
         return

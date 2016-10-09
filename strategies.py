@@ -45,15 +45,15 @@ def one_to_one(hint, bars, options):
         # Exit check
         if bar.isDefendReach(entry_bar,defend) and bar.isTargetReach(entry_bar,target):
             if bar.isDefendReach.date < bar.isTargetReach.date:
-                exit_bar, exit_price = bar.isDefendReach
+                exit_bar, exit_price = bar.isDefendReach(defend)
             else:
-                exit_bar, exit_price = bar.isTargetReach
+                exit_bar, exit_price = bar.isTargetReach(target)
 
         elif bar.isDefendReach:
-            exit_bar, exit_price = bar.isDefendReach
+            exit_bar, exit_price = bar.isDefendReach(defend)
 
         elif bar.isTargetReach:
-            exit_bar, exit_price = bar.isTargetReach
+            exit_bar, exit_price = bar.isTargetReach(target)
 
         if exit_bar:
             processed_hint = processed_hint_template(hint,options,entry_bar,entry_trigger,exit_bar,exit_price)

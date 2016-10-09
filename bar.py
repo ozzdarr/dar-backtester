@@ -1,4 +1,5 @@
 from collections import namedtuple
+from ib_bars import BarsService,QueryDuration
 
 class Bar(namedtuple("Bar", [
     "open",
@@ -13,6 +14,7 @@ class Bar(namedtuple("Bar", [
 ])):
     def __init__(self, *args, **kargs):
         super(Bar, self).__init__()
+        self._bars_service = BarsService.instance()
 
     def __getitem__(self, key):
         if key in self._fields:
@@ -40,6 +42,52 @@ class Bar(namedtuple("Bar", [
     def isTriggerReach(self, hint, entry_trigger, hint_timeScale, options):
         if self.isAfterHintTime(hint,hint_timeScale):
             return (self.isTriggerPriceReach(hint, entry_trigger) and self.isNotAgressive(hint, entry_trigger, options))
+
+    def isTargetReach(self,hint,target):
+        if self._isTargetReach(hint,target):
+            seconds_bar = self._bars_service.expand_bar(hint.date, hint.sym, QueryDuration(minutes=1))
+            for bar in seconds_bar:
+                if bar.date > hint.time:
+                    if self._isTargetReach(hint,target):
+                        return self._isTriggerReach
+        else:
+            return False
+
+    def _isTargetReach(self,hint,target):
+        if hint.isLong:
+            if self.high >= target:
+                return self
+        elif hint.isShort:
+            if self.low <= target:
+                return self
+        else:
+            return False
+
+    def _isDefendReach(self,hint,defend):
+        if len(bars) == 60:
+            hint_timeScale = None
+        else:
+            hint_timeScale = 0
+        if self.date > hint.time.replace(minute=hint_timeScale,microsecond=0):
+            if hint.isLong:
+                if self.low <= defend:
+                    return self
+            elif hint.isShort:
+                if self.high >= defend:
+                    return self
+        else:
+            return False
+
+    def isDefendReach(self,hint,defend):
+        if self._isDefendReach(hint,defend):
+            seconds_bar = self._bars_service.expand_bar(hint.date, hint.sym, QueryDuration(minutes=1))
+            for bar in seconds_bar:
+                if bar._isDefendReach(hint,defend):
+                        return self
+        else:
+            return False
+
+
 '''
     def isDefensivePattern(self, hint, bars, defend, options):
         i  = self.index

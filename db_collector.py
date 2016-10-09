@@ -3,7 +3,7 @@ from io import StringIO
 import urllib.request
 import pymongo
 import datetime
-from hint import Hint
+#from raw_hint import RawHint
 
 def hints_import(source="megamot"):
     mongo = pymongo.MongoClient("139.59.211.215", 27017)
@@ -26,7 +26,7 @@ def hints_import(source="megamot"):
 
         if (current_hint and (doc["sym"] != current_hint["sym"])) or (doc["position"] != "stop"):
             if current_hint:
-                hints_list.append(Hint(**{
+                hints_list.append(RawHint(**{
                     "id": counter,
                     "position": current_hint["position"],
                     "sym": current_hint["sym"],
@@ -43,7 +43,7 @@ def hints_import(source="megamot"):
             current_hint = doc
             continue
 
-        hints_list.append(Hint(**{
+        hints_list.append(RawHint(**{
             "id": counter,
             "sym": current_hint["sym"],
             "position": current_hint["position"],
@@ -110,7 +110,7 @@ def hints_to_csv(source='megamot'):
 
 def megamot_ignored_csv():
     mongo = pymongo.MongoClient("139.59.211.215", 27017)
-    db = mongo.db_production
+    db = mongo.db_testing
     ignored = db.megamot_ignored
     ignored = ignored.find({})
     print(ignored[1].keys())
@@ -128,9 +128,14 @@ def megamot_ignored_csv():
         'ref',
         'positions',
         '_id',
-        'risk_prices'
+        'risk_prices',
+        'unparsed',
+        'ts'
     ]
     with open(r"Ignored Megamot feeds.csv", "w") as output:
         writer = csv.DictWriter(output, csv_keys)
         writer.writeheader()
         writer.writerows(ignored)
+
+
+megamot_ignored_csv()

@@ -3,6 +3,7 @@ from ib_bars import BarsService
 from csv_templates import *
 from ib_bars import QueryDuration
 
+
 class Hint(namedtuple("Hint", [
     "id",
     "sym",
@@ -12,25 +13,35 @@ class Hint(namedtuple("Hint", [
     "time"
 ])):
     def __init__(self, *args, **kargs):
-        super(Hint, self).__init__()
+        super(RawHint, self).__init__()
         self._bars_service = BarsService.instance()
 
     def __getitem__(self, key):
         if key in self._fields:
             return getattr(self, key)
-        return super(Hint, self).__getitem__(key)
+        return super(RawHint, self).__getitem__(key)
+
+    def __setitem__(self, key, value):
+        if key in self._fields:
+            self._values[key] = value
+            return
+        setattr(self, key, value)
+
 
     @property
     def isLong(self):
         return self.position == 'long'
 
+
     @property
     def isShort(self):
         return self.position == 'short'
 
+
     @property
     def isCancel(self):
         return self.position == 'cancel'
+
 
     @property
     def defendSize(self):
@@ -39,9 +50,11 @@ class Hint(namedtuple("Hint", [
         elif self.isShort:
             return self.defend - self.price
 
+
     @property
     def hasDirection(self):
         return self.isLong or self.isShort
+
 
     @property
     def hasUnreasonableStop(self):
@@ -51,12 +64,14 @@ class Hint(namedtuple("Hint", [
             return self.defend < self.price
         return False
 
+
     @property
     def defaultDefend(self):
         if self.isLong:
             return self.price - ((self.price * 0.0033) + 0.05)
         elif self.isShort:
             return self.price + ((self.price * 0.0033) + 0.05)
+
 
     @property
     def defaultTarget(self):
@@ -65,9 +80,11 @@ class Hint(namedtuple("Hint", [
         elif self.isShort:
             return self.price - self.defendSize
 
+
     @property
     def hasNoDefend(self):
         return self.defend == 0
+
 
     def entryTrigger(self, options):
         if self.isLong:
@@ -75,13 +92,16 @@ class Hint(namedtuple("Hint", [
         elif self.isShort:
             return self.price - options['entry_var']
 
+
     def manipulateDefend(self, options):
         if self.hasNoDefend or self.hasBigDefend(options):
             self.defend = self.defaultDefend
             return self
 
+
     def hasBigDefend(self, options):
         return self.defendSize > options['max_defend_size']
+
 
     def entryQuery(self, bars, entry_trigger, options):
         entry_bar = self._entryQuery(bars, entry_trigger, options)
@@ -92,6 +112,7 @@ class Hint(namedtuple("Hint", [
 
             entry_bar = self._entryQuery(seconds_bar, entry_trigger, options)
         return entry_bar
+
 
     def _entryQuery(self, bars, entry_trigger, options):
         entry_bar = None
@@ -104,8 +125,8 @@ class Hint(namedtuple("Hint", [
                 entry_bar = bar
         return entry_bar
 
-    def returningHints(hint, processed_hints, options, ignored_hint=None):
 
+    def returningHints(hint, processed_hints, options, ignored_hint=None):
         for h in processed_hints:
             if h.hasDirection and h.isHintMatch(hint):
                 if type(h['entryTime']) is str:
@@ -131,6 +152,7 @@ class Hint(namedtuple("Hint", [
         else:
             return None
 
+
     def importBars(self, options):
         bars = self._bars_service.get_bars_list(self)
         print("%d - %s" % (self['id'], self['time']))
@@ -140,6 +162,7 @@ class Hint(namedtuple("Hint", [
             return bars, processed_hint
         else:
             return bars, None
+
 
     def __str__(self):
         return str(dict(self._asdict()))
