@@ -1,8 +1,4 @@
 from collections import namedtuple
-from ib_bars import BarsService
-bars_service = BarsService()
-from csv_templates import *
-from refactoring_main import OPTIONS as options
 
 class Bar(namedtuple("Bar", [
     "open",
@@ -10,18 +6,24 @@ class Bar(namedtuple("Bar", [
     "high",
     "low",
     "date",
-    "volume"
+    "volume",
+    "count",
+    "hasGaps",
+    "WAP",
 ])):
     def __init__(self, *args, **kargs):
-        super(Hint, self).__init__()
+        super(Bar, self).__init__()
 
     def __getitem__(self, key):
         if key in self._fields:
             return getattr(self, key)
-        return super(Hint, self).__getitem__(key)
+        return super(Bar, self).__getitem__(key)
 
-    def isAfterHintTime(self, hint, hint_timeScale):
-        return self.date >= hint.date.replace(second=hint_timeScale, microsecond=0)
+    def isAfterHintTime(self, hint, hint_timeScale=None):
+        if hint_timeScale:
+            return self.date >= hint.time.replace(second=hint_timeScale, microsecond=0)
+
+        return self.date >= hint.time.replace(microsecond=0)
 
     def isTriggerPriceReach(self, hint, entry_trigger):
         if hint.isLong:
@@ -35,9 +37,9 @@ class Bar(namedtuple("Bar", [
         elif hint.isLong:
             return self.low - entry_trigger <= options['agressive_var']
 
-    def isTriggerReach(self,hint,entry_trigger,hint_timeScale):
+    def isTriggerReach(self, hint, entry_trigger, hint_timeScale, options):
         if self.isAfterHintTime(hint,hint_timeScale):
-            return (self.isTriggerPriceReach(hint,entry_trigger) and self.isNotAgressive(hint,entry_trigger,options))
+            return (self.isTriggerPriceReach(hint, entry_trigger) and self.isNotAgressive(hint, entry_trigger, options))
 '''
     def isDefensivePattern(self, hint, bars, defend, options):
         i  = self.index
@@ -54,13 +56,3 @@ class Bar(namedtuple("Bar", [
             if self.low < #list of bars. deafault example: [bars[i-1],bars[i+1]]
                 #Todo: continue
 '''
-
-
-
-
-
-
-
-
-
-

@@ -14,6 +14,7 @@ import pickle
 import os
 import moment
 from time import mktime
+from bar import Bar
 
 __all__ = ["QueryDuration",
            "BarsOptions",
@@ -146,18 +147,27 @@ class QueryDuration(namedtuple("QueryDuration",
         return self._as_string
 
 class BarsService(object):
-    def __init__(self, options=BarsOptions(**{
-        "twsHost": "localhost",
-        "twsPort": 7497,
-        "twsClientId": 666,
-        "cacheFile": "bars.cache"
-        })):
+    _INSTANCE = None
+
+    def __init__(self, options=None):
+
+        if self._INSTANCE:
+            raise Exception("BarsService is already initialized")
+
+        if not options:
+            options = BarsOptions(**{
+                "twsHost": "localhost",
+                "twsPort": 7497,
+                "twsClientId": 666,
+                "cacheFile": "bars.cache"
+            })
 
         self._opts = options
         self._connected = False
         self._ticker_id = 1
         self._pacing_counter = 0
         self._conn = None
+        self._cache_dirty = False
         self._cache = {
             'bars': {},
             'expanded_bars': {},
@@ -174,6 +184,20 @@ class BarsService(object):
                 'expanded_bars': {},
             }
 
+    @classmethod
+    def init(cls, options=None):
+        cls._INSTANCE = BarsService()
+
+    @classmethod
+    def deinit(cls):
+        if cls._INSTANCE:
+            del cls._INSTANCE
+        cls._INSTANCE = None
+
+    @classmethod
+    def instance(cls):
+        return cls._INSTANCE
+
     def disconnect(self):
         self._connected
         if self._connected:
@@ -189,12 +213,14 @@ class BarsService(object):
         if hint_date not in self._cache[query_type][hint_sym]:
             try:
                 self._cache[query_type][hint_sym][hint_date] = fetcher(hint_date, hint_sym)
+                self._cache_dirty = True
                 self._save_cache()
             except Exception as e:
                 print ("failed to obtain bars for %s: %s" % (hint_sym, e))
                 return e.args[0]
 
-        return self._cache[query_type][hint_sym][hint_date]
+        return list(map(lambda x: Bar(**x),
+                        self._cache[query_type][hint_sym][hint_date]))
 
     def expand_bar(self, hint_date, hint_sym, duration=None):
         return self._query('expanded_bars',
@@ -239,9 +265,9 @@ class BarsService(object):
         if not self._connected:
             self._connect()
 
-        if (self._pacing_counter % 60) == 0:
+        if self._pacing_counter != 0 and self._pacing_counter % 60 == 0:
             print('sleeping 10 minutes')
-            #sleep(600)
+            sleep(600)
 
         # Register input processing function
         def processInput(x):
@@ -316,8 +342,12 @@ class BarsService(object):
         return (hint_date, hint_sym)
 
     def _save_cache(self):
+        if not self._cache_dirty:
+            return
+
         with open(self._opts.cacheFile, "wb") as f:
             pickle.dump(self._cache, f)
+            self._cache_dirty = False
 
     def __del__(self):
         self.disconnect()

@@ -5,8 +5,6 @@ import pymongo
 import datetime
 from hint import Hint
 
-
-
 def hints_import(source="megamot"):
     mongo = pymongo.MongoClient("139.59.211.215", 27017)
     db = mongo.db_production
@@ -20,6 +18,7 @@ def hints_import(source="megamot"):
     #        "$lt": datetime.datetime(2016,7,12,14,32,0,0)
     #}})
 
+    counter = 1
     current_hint = None
     hints_list = list()
     for doc in all_hints:
@@ -28,12 +27,14 @@ def hints_import(source="megamot"):
         if (current_hint and (doc["sym"] != current_hint["sym"])) or (doc["position"] != "stop"):
             if current_hint:
                 hints_list.append(Hint(**{
+                    "id": counter,
                     "position": current_hint["position"],
                     "sym": current_hint["sym"],
                     "price": current_hint["price"],
                     "defend": 0,
                     "time": current_hint["refTime"]
                 }))
+                counter += 1
             current_hint = None
 
         if not current_hint:
@@ -43,12 +44,14 @@ def hints_import(source="megamot"):
             continue
 
         hints_list.append(Hint(**{
+            "id": counter,
             "sym": current_hint["sym"],
             "position": current_hint["position"],
             "price": round(current_hint["price"],2),
             "defend": round(doc["price"],2),
             "time": current_hint["refTime"]
         }))
+        counter += 1
 
         current_hint = None
     return hints_list

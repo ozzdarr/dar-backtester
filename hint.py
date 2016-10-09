@@ -3,20 +3,8 @@ from ib_bars import BarsService
 from csv_templates import *
 from ib_bars import QueryDuration
 
-bars_service = BarsService()
-OPTIONS = {
-    "entry_var": 0.01,
-    "stop_var": 0.01,
-    "exit1to1_var": 0,
-    "bar_size": 5,
-    "exit_var": 0.01,
-    "slippage": 0.02,
-    'commission': 0,
-    'max_defend_size': 1
-}
-
-
 class Hint(namedtuple("Hint", [
+    "id",
     "sym",
     "position",
     "price",
@@ -25,6 +13,7 @@ class Hint(namedtuple("Hint", [
 ])):
     def __init__(self, *args, **kargs):
         super(Hint, self).__init__()
+        self._bars_service = BarsService.instance()
 
     def __getitem__(self, key):
         if key in self._fields:
@@ -70,41 +59,52 @@ class Hint(namedtuple("Hint", [
             return self.price + ((self.price * 0.0033) + 0.05)
 
     @property
+    def defaultTarget(self):
+        if self.isLong:
+            return self.price + self.defendSize
+        elif self.isShort:
+            return self.price - self.defendSize
+
+    @property
     def hasNoDefend(self):
         return self.defend == 0
 
-    @property
-    def manipulateDefend(self):
-        if self.hasNoDefend or self.hasBigStop:
+    def entryTrigger(self, options):
+        if self.isLong:
+            return self.price + options['entry_var']
+        elif self.isShort:
+            return self.price - options['entry_var']
+
+    def manipulateDefend(self, options):
+        if self.hasNoDefend or self.hasBigDefend(options):
             self.defend = self.defaultDefend
             return self
 
-    @property
-    def hasBigDefend(self, options=OPTIONS):
+    def hasBigDefend(self, options):
         return self.defendSize > options['max_defend_size']
 
-    @property
-    def entryQuery(self, bars, entry_trigger, bars_service):
-        entry_bar = self._entryQuery(self, bars, entry_trigger)
-        if entry_bar:
-            seconds_bar = bars_service.expand_bar(entry_bar.date, self.sym, QueryDuration(minutes=1))
-            entry_bar = self._entryQuery(self, seconds_bar, entry_trigger)
+    def entryQuery(self, bars, entry_trigger, options):
+        entry_bar = self._entryQuery(bars, entry_trigger, options)
+        if entry_bar and type(entry_bar) is not str:
+            seconds_bar = self._bars_service.expand_bar(entry_bar.date, self.sym, QueryDuration(minutes=1))
+            if type(seconds_bar) is str:
+                return seconds_bar
+
+            entry_bar = self._entryQuery(seconds_bar, entry_trigger, options)
         return entry_bar
 
-    @property
-    def _entryQuery(self, bars, entry_trigger):
+    def _entryQuery(self, bars, entry_trigger, options):
         entry_bar = None
         if len(bars) == 60:
-            hint_timeScale = 'second'
+            hint_timeScale = None
         else:
             hint_timeScale = 0
         for bar in bars:
-            if bar.isTriggerReach(self, entry_trigger, hint_timeScale):
+            if bar.isTriggerReach(self, entry_trigger, hint_timeScale, options):
                 entry_bar = bar
         return entry_bar
 
-    @property
-    def returningHints(hint, processed_hints, options=OPTIONS, ignored_hint=None):
+    def returningHints(hint, processed_hints, options, ignored_hint=None):
 
         for h in processed_hints:
             if h.hasDirection and h.isHintMatch(hint):
@@ -131,17 +131,15 @@ class Hint(namedtuple("Hint", [
         else:
             return None
 
-    @property
-    def importBars(self, counter=0, bars_service=bars_service, options=OPTIONS):
-        bars = bars_service.get_bars_list(self)
-        counter += 1
-        print("%d - %s" % (counter, self['time']))
+    def importBars(self, options):
+        bars = self._bars_service.get_bars_list(self)
+        print("%d - %s" % (self['id'], self['time']))
         # Check if error in importing bars
         if type(bars) is str:
             processed_hint = processed_hint_template(self, options, bars=bars)
-            return bars, processed_hint, counter
+            return bars, processed_hint
         else:
-            return bars, None, counter
+            return bars, None
 
     def __str__(self):
         return str(dict(self._asdict()))
