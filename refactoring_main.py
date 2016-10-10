@@ -19,7 +19,8 @@ OPTIONS = {
     'max_defend_size': 1.00,
     'kill_trade_time': 10, # 10 minutes before EOD
     'output_file_name': r'backtester_results.csv',
-    'unreasonable_defend': None
+    'unreasonable_defend': None,
+    'has_no_defend': None
 }
 
 CSV_KEYS = ProcessedHint._fields
@@ -60,9 +61,9 @@ def validation_test(hint, options, processed_hints):
         invalid_processed_hint = processed_hint_template(hint, options)
 
     if invalid_processed_hint:
-        return hint, invalid_processed_hint
+        return invalid_processed_hint
     else:
-        return hint, None
+        return  None
 
 def process_valid_hint(raw_hint, options):
     # Create "Hint" object
