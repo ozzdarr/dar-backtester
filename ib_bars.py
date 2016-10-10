@@ -14,7 +14,6 @@ import pickle
 import os
 import moment
 from time import mktime
-from bar import Bar
 
 __all__ = ["QueryDuration",
            "BarsOptions",
@@ -146,6 +145,7 @@ class QueryDuration(namedtuple("QueryDuration",
     def as_string(self):
         return self._as_string
 
+
 class BarsService(object):
     _INSTANCE = None
 
@@ -219,6 +219,7 @@ class BarsService(object):
                 print ("failed to obtain bars for %s: %s" % (hint_sym, e))
                 return e.args[0]
 
+        from bar import Bar
         return list(map(lambda x: Bar(**x),
                         self._cache[query_type][hint_sym][hint_date]))
 

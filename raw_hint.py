@@ -3,8 +3,7 @@ from ib_bars import BarsService
 from csv_templates import *
 from ib_bars import QueryDuration
 
-
-class Hint(namedtuple("Hint", [
+class RawHint(namedtuple("RawHint", [
     "id",
     "sym",
     "position",
@@ -13,67 +12,21 @@ class Hint(namedtuple("Hint", [
     "time"
 ])):
     def __init__(self, *args, **kargs):
-        super(Hint, self).__init__()
+        super(RawHint, self).__init__()
         self._bars_service = BarsService.instance()
 
     def __getitem__(self, key):
         if key in self._fields:
             return getattr(self, key)
-        return super(Hint, self).__getitem__(key)
-
-    def __setitem__(self, key, value):
-        if key in self._fields:
-            self._values[key] = value
-            return
-        setattr(self, key, value)
-
-    def _defaultDefend(self, options):
-        if not self.hasNoDefend:
-            if self.isLong:
-                return self.defend - options['exit_var']
-            elif self.isShort:
-                return self.defend + options['exit_var']
-
-    def hasUnreasonableDefend(self, options):
-        if self.isLong:
-            return self._defaultDefend(options) > self.price
-        elif self.isShort:
-            return self._defaultDefend(options) < self.price
-        return False
-
-    def hasBigDefend(self, options):
-        return self._defendSize(options) > options['max_defend_size']
-
-    def _defendSize(self, options):
-        if self.isLong:
-            return self.entryTrigger(options) - self._defaultDefend(options)
-        elif self.isShort:
-            return self._defaultDefend(options) - self.entryTrigger(options)
-
-
-
-    @property
-    def defaultDefend(self):
-        if self.isLong:
-            return self.price - ((self.price * 0.0033) + 0.05)
-        elif self.isShort:
-            return self.price + ((self.price * 0.0033) + 0.05)
-
-    def setDefend(self, options):
-            self.defend = self.defaultDefend
-            return self
-
-
+        return super(RawHint, self).__getitem__(key)
 
     @property
     def isLong(self):
         return self.position == 'long'
 
-
     @property
     def isShort(self):
         return self.position == 'short'
-
 
     @property
     def isCancel(self):
@@ -83,16 +36,45 @@ class Hint(namedtuple("Hint", [
     def hasDirection(self):
         return self.isLong or self.isShort
 
+
+    def _defaultDefend(self,options):
+        if not self.hasNoDefend:
+            if self.isLong:
+                return self.defend - options['exit_var']
+            elif self.isShort:
+                return self.defend + options['exit_var']
+
+    def hasUnreasonableDefend(self,options):
+        if self.isLong:
+            return self._defaultDefend(options) > self.price
+        elif self.isShort:
+            return self._defaultDefend(options) < self.price
+        return False
+
+    def hasBigDefend(self, options):
+        return self._defendSize(options) > options['max_defend_size']
+
+
+    def _defendSize(self,options):
+        if self.isLong:
+            return self.entryTrigger(options) - self._defaultDefend(options)
+        elif self.isShort:
+            return self._defaultDefend(options) - self.entryTrigger(options)
+
     @property
     def hasNoDefend(self):
         return self.defend == 0
 
 
-    def defendSize(self,options):
+
+
+    @property
+    def defaultTarget(self):
         if self.isLong:
-            return self.entryTrigger(options) - self.defend
+            return self.price + self.defendSize
         elif self.isShort:
-            return self.defend - self.entryTrigger(options)
+            return self.price - self.defendSize
+
 
 
     def entryTrigger(self, options):
@@ -102,11 +84,6 @@ class Hint(namedtuple("Hint", [
             return self.price - options['entry_var']
 
 
-    def defaultTarget(self,options):
-        if self.isLong:
-            return self.entryTrigger(options) + self.defendSize(options)
-        elif self.isShort:
-            return self.entryTrigger(options) - self.defendSize(options)
 
 
 
@@ -121,7 +98,6 @@ class Hint(namedtuple("Hint", [
             entry_bar = self._entryQuery(seconds_bar, entry_trigger, options)
         return entry_bar
 
-
     def _entryQuery(self, bars, entry_trigger, options):
         entry_bar = None
         if len(bars) == 60:
@@ -133,33 +109,33 @@ class Hint(namedtuple("Hint", [
                 entry_bar = bar
         return entry_bar
 
+    def returningHints(self, processed_hints, options, ignored_hint=None):
 
-    def returningHints(hint, processed_hints, options, ignored_hint=None):
         for h in processed_hints:
-            if h.hasDirection and h.isHintMatch(hint):
+            print(h)
+            if h.hasDirection and h.isHintMatch(self):
                 if type(h['entryTime']) is str:
                     continue
-                if hint['time'] < h['entryTime']:
+                if self['time'] < h['entryTime']:
                     h['entryTime'] = 'did not enter'
                     h['entryPrice'] = 'did not enter'
                     h['exitTime'] = 'did not enter'
                     h['exitPrice'] = 'did not enter'
                     h['netRevenue'] = 'did not enter'
-                    if hint.hasDirection:
+                    if self.hasDirection:
                         h['comment'] = 'Changed'
-                    elif hint.isCancel:
+                    elif self.isCancel:
                         h['comment'] = 'Canceled'
                     continue
-                elif hint['time'] > h['exitTime']:
+                elif self['time'] > h['exitTime']:
                     continue
                 else:
-                    ignored_hint = processed_hint_template(hint, options, error='Ignored')
+                    ignored_hint = processed_hint_template(self, options, error='Ignored')
 
         if ignored_hint:
             return ignored_hint
         else:
             return None
-
 
     def importBars(self, options):
         bars = self._bars_service.get_bars_list(self)
@@ -170,7 +146,6 @@ class Hint(namedtuple("Hint", [
             return bars, processed_hint
         else:
             return bars, None
-
 
     def __str__(self):
         return str(dict(self._asdict()))

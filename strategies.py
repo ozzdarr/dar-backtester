@@ -1,6 +1,6 @@
 
-from queries import *
-from ib_bars import convert_bars_size
+#from queries import *
+#from ib_bars import convert_bars_size
 from csv_templates import *
 
 def current_bot_strategy(hint, bars, options, bars_service):
@@ -27,8 +27,8 @@ def defensive_strategy(hint, bars, options, bars_service):
 
 def one_to_one(hint, bars, options):
     entry_trigger = hint.entryTrigger(options)
-    target = hint.defaultTarget
-    defend = hint.defaultDefend
+    target = hint.defaultTarget(options)
+    defend = hint.defend
 
     entry_bar = hint.entryQuery(bars, entry_trigger, options)
     if not entry_bar:
@@ -39,7 +39,7 @@ def one_to_one(hint, bars, options):
 
     # Prepare bars to keep only the valid ones.
     bars = bars[:-options['kill_trade_time']]
-    bars = list(filter(lambda x: x.date >= entry_bar.date, bars))
+    bars = list(filter(lambda x: x.date >= entry_bar.date.replace(second=0), bars))
 
     for bar in bars:
         # Exit check

@@ -3,7 +3,7 @@ from io import StringIO
 import urllib.request
 import pymongo
 import datetime
-#from raw_hint import RawHint
+from raw_hint import RawHint
 
 def hints_import(source="megamot"):
     mongo = pymongo.MongoClient("139.59.211.215", 27017)

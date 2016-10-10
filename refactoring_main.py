@@ -19,6 +19,7 @@ OPTIONS = {
     'max_defend_size': 1.00,
     'kill_trade_time': 10, # 10 minutes before EOD
     'output_file_name': r'backtester_results.csv',
+    'unreasonable_defend': None
 }
 
 CSV_KEYS = ProcessedHint._fields
@@ -42,32 +43,42 @@ def validation_test(hint, options, processed_hints):
     ignored_hint = None
     invalid_processed_hint = None
 
-    if hint.hasUnreasonableStop:
-        invalid_processed_hint = processed_hint_template(hint, options, error='Unreasonable stop')
+    if hint.hasUnreasonableDefend:
+        if not options['unreasonable_defend']:
+            invalid_processed_hint = processed_hint_template(hint, options, error='Unreasonable stop')
+    if hint.hasNoDefend:
+        if not options['has_no_defend']:
+            invalid_processed_hint = processed_hint_template(hint, options, error='No stop input from admin')
     if not hint.isCancel and hint.hasBigDefend(options):
-        invalid_processed_hint = processed_hint_template(hint, options, error='Unreasonable stop - too big')
+        if not options['max_defend_size']:
+            invalid_processed_hint = processed_hint_template(hint, options, error='Unreasonable stop - too big')
     if len(processed_hints):
         ignored_hint = hint.returningHints(processed_hints, options)
     if ignored_hint:
         invalid_processed_hint = ignored_hint
     if hint.isCancel:
-        unvalid_processed_hint = processed_hint_template(hint, options)
+        invalid_processed_hint = processed_hint_template(hint, options)
 
     if invalid_processed_hint:
-        return hint, unvalid_processed_hint
+        return hint, invalid_processed_hint
     else:
         return hint, None
 
 def process_valid_hint(raw_hint, options):
-    # Import bars
-    hint = Hint(raw_hint).manipulateDefend(options)
+    # Create "Hint" object
+    hint = Hint(raw_hint)
 
+    # Manipulate stop
+    if hint.hasUnreasonableDefend or hint.hasBigDefend or hint.hasNoDefend:
+        hint.manipulateDefend(options)
+
+    # Import bars
     bars, error_processed_hint = hint.importBars(options=options)
 
     # If there was an error in importing
     if error_processed_hint:
         return error_processed_hint
-
+    # Continue Processing valid hint
     else:
         # Execute strategy
         processed_hint = one_to_one(hint, bars, options)
