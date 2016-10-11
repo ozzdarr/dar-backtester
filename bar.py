@@ -1,6 +1,7 @@
 from collections import namedtuple
 from ib_bars import BarsService, QueryDuration
-
+from raw_hint import RawHint
+from datetime import datetime,timedelta
 class Bar(namedtuple("Bar", [
     "open",
     "close",
@@ -21,7 +22,7 @@ class Bar(namedtuple("Bar", [
             return getattr(self, key)
         return super(Bar, self).__getitem__(key)
 
-    def isAfterHintTime(self, hint, hint_timeScale=None):
+    def isAfterHintTime(self, hint, hint_timeScale):
         if hint_timeScale:
             return self.date >= hint.time.replace(second=hint_timeScale, microsecond=0)
 
@@ -40,25 +41,30 @@ class Bar(namedtuple("Bar", [
             return self.low - entry_trigger <= options['agressive_var']
 
     def isTriggerReach(self, hint, entry_trigger, hint_timeScale, options):
-        if self.isAfterHintTime(hint,hint_timeScale):
+        if self.isInTimeWindow(hint,hint_timeScale):
             return (self.isTriggerPriceReach(hint, entry_trigger) and self.isNotAgressive(hint, entry_trigger, options))
 
+    def isInTimeWindow(self,hint,hint_timeScale):
+        return self.isAfterHintTime(hint,hint_timeScale) and self._isInTimeWindow(hint)
+
+    def _isInTimeWindow(self,hint):
+        return self.date < hint.time.replace(microsecond=0) + timedelta(hours=1)
 
     def isTargetReach(self,hint,target):
         if self.targetReach(hint,target):
-            seconds_bar = self._bars_service.expand_bar(hint.date, hint.sym, QueryDuration(minutes=1))
+            seconds_bar = self._bars_service.expand_bar(self.date, hint.sym, QueryDuration(minutes=1))
             for bar in seconds_bar:
                 if bar.targetReach(hint,target,seconds_bar):
-                    return bar
+                    return bar, target
         else:
             return False
 
     def targetReach(self,hint,target,seconds_bar=None):
         if seconds_bar:
-            hint_timeScale = None
+            hint_time = hint.time.replace(microsecond=0)
         else:
-            hint_timeScale = 0
-        if self.date >= hint.time.replace(minute=hint_timeScale,microsecond=0):
+            hint_time = hint.time.replace(second=0,microsecond=0)
+        if self.date >= hint_time:
             if hint.isLong:
                 if self.high >= target:
                     return self
@@ -70,10 +76,10 @@ class Bar(namedtuple("Bar", [
 
     def defendReach(self,hint,defend,seconds_bar=None):
         if seconds_bar:
-            hint_timeScale = None
+            hint_time = hint.time.replace(microsecond=0)
         else:
-            hint_timeScale = 0
-        if self.date >= hint.time.replace(minute=hint_timeScale,microsecond=0):
+            hint_time = hint.time.replace(second=0,microsecond=0)
+        if self.date >= hint_time:
             if hint.isLong:
                 if self.low <= defend:
                     return self
@@ -85,12 +91,11 @@ class Bar(namedtuple("Bar", [
 
     def isDefendReach(self,hint,defend):
         if self.defendReach(hint,defend):
-            seconds_bar = self._bars_service.expand_bar(hint.date, hint.sym, QueryDuration(minutes=1))
+            seconds_bar = self._bars_service.expand_bar(self.date, hint.sym, QueryDuration(minutes=1))
             for bar in seconds_bar:
                 if bar.defendReach(hint,defend,seconds_bar):
-                        return bar
-        else:
-            return False
+                        return bar, defend
+
 
 
 '''
@@ -107,5 +112,5 @@ class Bar(namedtuple("Bar", [
         i = self.index
         if hint.isLong:
             if self.low < #list of bars. deafault example: [bars[i-1],bars[i+1]]
-                #Todo: continue
+
 '''

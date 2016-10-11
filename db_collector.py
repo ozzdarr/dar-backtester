@@ -12,11 +12,11 @@ def hints_import(source="megamot"):
     all_hints = hints.find({
         "source": source,
     })
-    #all_hints = hints.find({
-    #    "refTime": {
-    #        "$gt": datetime.datetime(2016,7,12,14,31,0,0),
-    #        "$lt": datetime.datetime(2016,7,12,14,32,0,0)
-    #}})
+    all_hints = hints.find({
+        "refTime": {
+            "$gt": datetime.datetime(2016,10,1,14,31,0,0),
+            "$lt": datetime.datetime(2016,10,12,14,32,0,0)
+    }})
 
     counter = 1
     current_hint = None
@@ -137,5 +137,3 @@ def megamot_ignored_csv():
         writer.writeheader()
         writer.writerows(ignored)
 
-
-megamot_ignored_csv()

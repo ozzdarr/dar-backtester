@@ -1,6 +1,7 @@
 import csv
 from math import fabs
 from processedHint import ProcessedHint
+from bar import Bar
 
 def csv_writer(fileName, listOfDicts, csv_keys):
     if len(listOfDicts):
@@ -126,8 +127,8 @@ def processed_hint_template(hint,options, entry_bar=None, entry_price=None,
             processed_hint = {
             'entryTime': entry_bar['date'],
             'entryPrice': entry_price,
-            'exitTime': bars[-10]['date'],
-            'exitPrice': bars[-10]['close'],
+            'exitTime': bars[-1].date,
+            'exitPrice': bars[-1]['close'],
             'netRevenue': round(entry_price - bars[-10]['close'] - 2*slippage - commission,2),
             'symbol': hint['sym'],
             'hintTime': hint['time'],

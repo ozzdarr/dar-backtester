@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from csv_templates import processed_hint_template, csv_writer
-from strategies import one_to_one, current_bot_strategy
+from strategies import one_to_one
 from ib_bars import BarsService
 from db_collector import make_hints_list
 from processedHint import ProcessedHint
@@ -37,6 +37,8 @@ def process_raw_hints(raw_hints, options):
             # Continue process valid hints
             processed_hint = process_valid_hint(raw_hint, options)
             processed_hints.append(processed_hint)
+            if len(processed_hints) > 20:
+                return processed_hints
             continue
     return processed_hints
 
@@ -44,13 +46,13 @@ def validation_test(hint, options, processed_hints):
     ignored_hint = None
     invalid_processed_hint = None
 
-    if hint.hasUnreasonableDefend:
-        if not options['unreasonable_defend']:
-            invalid_processed_hint = processed_hint_template(hint, options, error='Unreasonable stop')
     if hint.hasNoDefend:
         if not options['has_no_defend']:
             invalid_processed_hint = processed_hint_template(hint, options, error='No stop input from admin')
-    if not hint.isCancel and hint.hasBigDefend(options):
+    elif hint.hasUnreasonableUserDefend(options):
+        if not options['unreasonable_defend']:
+            invalid_processed_hint = processed_hint_template(hint, options, error='Unreasonable stop')
+    elif not hint.isCancel and hint.hasBigUserDefend(options):
         if not options['max_defend_size']:
             invalid_processed_hint = processed_hint_template(hint, options, error='Unreasonable stop - too big')
     if len(processed_hints):
@@ -65,13 +67,9 @@ def validation_test(hint, options, processed_hints):
     else:
         return  None
 
-def process_valid_hint(raw_hint, options):
+def process_valid_hint(hint, options):
     # Create "Hint" object
-    hint = Hint(raw_hint)
 
-    # Manipulate stop
-    if hint.hasUnreasonableDefend or hint.hasBigDefend or hint.hasNoDefend:
-        hint.manipulateDefend(options)
 
     # Import bars
     bars, error_processed_hint = hint.importBars(options=options)

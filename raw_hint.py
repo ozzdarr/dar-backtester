@@ -36,48 +36,61 @@ class RawHint(namedtuple("RawHint", [
     def hasDirection(self):
         return self.isLong or self.isShort
 
+    @property
+    def hasNoDefend(self):
+        print(self.defend == 0)
+        return self.defend == 0
 
-    def _defaultDefend(self,options):
+
+
+    def userDefend(self,options):
         if not self.hasNoDefend:
             if self.isLong:
                 return self.defend - options['exit_var']
             elif self.isShort:
                 return self.defend + options['exit_var']
 
-    def hasUnreasonableDefend(self,options):
+
+    def hasUnreasonableUserDefend(self,options):
+        if not self.hasNoDefend:
+            if self.isLong:
+                return self.userDefend(options) > self.price
+            elif self.isShort:
+                print(self.userDefend(options) < self.price)
+                return self.userDefend(options) < self.price
+
+
+    def hasBigUserDefend(self, options):
+        print(self.userDefendSize(options) > options['max_defend_size'])
+        return self.userDefendSize(options) > options['max_defend_size']
+
+
+    def userDefendSize(self,options):
         if self.isLong:
-            return self._defaultDefend(options) > self.price
+            return self.userEntryTrigger(options) - self.userDefend(options)
         elif self.isShort:
-            return self._defaultDefend(options) < self.price
-        return False
-
-    def hasBigDefend(self, options):
-        return self._defendSize(options) > options['max_defend_size']
-
-
-    def _defendSize(self,options):
-        if self.isLong:
-            return self.entryTrigger(options) - self._defaultDefend(options)
-        elif self.isShort:
-            return self._defaultDefend(options) - self.entryTrigger(options)
+            print(self.userDefend(options) - self.userEntryTrigger(options))
+            return self.userDefend(options) - self.userEntryTrigger(options)
 
     @property
-    def hasNoDefend(self):
-        return self.defend == 0
-
-
-
-
-    @property
-    def defaultTarget(self):
+    def defaultDefend(self):
         if self.isLong:
-            return self.price + self.defendSize
+            return self.price - ((self.price * 0.0033) + 0.05)
         elif self.isShort:
-            return self.price - self.defendSize
+            return self.price + ((self.price * 0.0033) + 0.05)
 
 
 
-    def entryTrigger(self, options):
+
+    def defaultTarget(self,options):
+        if self.isLong:
+            return self.userEntryTrigger(options) + self.userDefendSize(options)
+        elif self.isShort:
+            return self.userEntryTrigger(options) - self.userDefendSize(options)
+
+
+
+    def userEntryTrigger(self, options):
         if self.isLong:
             return self.price + options['entry_var']
         elif self.isShort:
@@ -107,7 +120,7 @@ class RawHint(namedtuple("RawHint", [
         for bar in bars:
             if bar.isTriggerReach(self, entry_trigger, hint_timeScale, options):
                 entry_bar = bar
-        return entry_bar
+                return entry_bar
 
     def returningHints(self, processed_hints, options, ignored_hint=None):
 
