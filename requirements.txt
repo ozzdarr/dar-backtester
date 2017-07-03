@@ -2,6 +2,5 @@ Rx
 ib-api
 progressbar2
 pymongo
-ipdb
 pytz
 tzlocal

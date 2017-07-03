@@ -12,7 +12,7 @@ def default_stop(hint):
         return hint['price'] + ((hint['price'] * 0.0033) + 0.05)
 
 def hints_import(source="megamot"):
-    mongo = pymongo.MongoClient("139.59.211.215", 27017)
+    mongo = pymongo.MongoClient("ds147072.mlab.com", 47072)
     db = mongo.db_production
     hints = db.hints
     all_hints = hints.find({
